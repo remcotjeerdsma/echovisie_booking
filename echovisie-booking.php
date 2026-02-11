@@ -390,6 +390,19 @@ function echovisie_query_bookly_slots( $service_id, $date, $duration_min ) {
             return $slots;
         }
 
+        // ── Trigger Google Calendar sync for each staff member ──
+        // Bookly Pro syncs Google Calendar events into wp_bookly_appointments.
+        // We trigger a fresh sync so slots reflect the latest calendar state.
+        if ( class_exists( '\Bookly\Lib\Proxy\Pro' ) ) {
+            foreach ( $staff_ids as $sid ) {
+                try {
+                    \Bookly\Lib\Proxy\Pro::syncGoogleCalendarEvents( $sid );
+                } catch ( \Exception $e ) {
+                    // Sync failure is non-fatal; continue with cached data
+                }
+            }
+        }
+
         // Get staff details
         $staff_members = \Bookly\Lib\Entities\Staff::query()
             ->whereIn( 'id', $staff_ids )

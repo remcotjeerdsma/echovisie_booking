@@ -806,12 +806,7 @@
     /* =========================================================
        STEP 3 – TIMESLOT SELECTION (fetched from Bookly via AJAX)
        ========================================================= */
-    function isWordPress() {
-        return typeof echovisieBooking !== 'undefined' && echovisieBooking.ajaxUrl;
-    }
-
     function fetchAvailableSlots() {
-        if (!isWordPress()) return;
 
         state.slotsLoading = true;
         state.slotsError = null;
@@ -892,73 +887,7 @@
             return;
         }
 
-        if (!isWordPress()) {
-            // Demo mode – no Bookly available
-            html += '<div class="ev-slots-demo-notice">';
-            html += '<p style="text-align:center;color:var(--ev-text-muted);padding:1rem;">';
-            html += 'In de live-omgeving worden hier de beschikbare tijdsloten van ';
-            html += '<strong>Ida, Christel en Rianne</strong> geladen vanuit Bookly.';
-            html += '</p></div>';
-
-            // Show dummy slots for demo purposes
-            for (var d = 0; d < state.packageQty; d++) {
-                var apt = state.appointments[d];
-                var cfg = getEffectiveConfig(d);
-                var label = state.packageQty > 1
-                    ? 'Afspraak ' + (d + 1) + ' (' + cfg.duration + ' min)'
-                    : 'Jouw echo (' + cfg.duration + ' min)';
-
-                html += '<div class="ev-slot-group">';
-                html += '<h4 class="ev-slot-group-title">' + label + '</h4>';
-
-                if (apt.date) {
-                    var dateObj = parseDate(apt.date);
-                    var dayOfWeek = dateObj ? dateObj.getDay() : 1; // 0=Sun, 6=Sat
-
-                    // Demo: simulate "no availability" on weekends to show alternatives
-                    if (dayOfWeek === 0 || dayOfWeek === 6) {
-                        html += '<p class="ev-slot-no-date">Geen beschikbare tijdsloten op <strong>' + formatDateNL(dateObj) + '</strong>.</p>';
-
-                        // Generate 2 fake alternative dates (next Monday and Tuesday)
-                        var daysToMon = dayOfWeek === 6 ? 2 : 1;
-                        var alt1 = new Date(dateObj.getTime() + daysToMon * DAY_MS);
-                        var alt2 = new Date(alt1.getTime() + DAY_MS);
-                        var demoAlts = [
-                            { date: formatDateISO(alt1), date_label: formatDateNL(alt1), slot_count: 18 },
-                            { date: formatDateISO(alt2), date_label: formatDateNL(alt2), slot_count: 12 }
-                        ];
-                        html += renderAlternatives(d, demoAlts);
-                    } else {
-                        html += '<p class="ev-slot-date-label">Beschikbaar op <strong>' + formatDateNL(dateObj) + '</strong></p>';
-
-                        var demoSlots = ['09:00', '09:10', '09:20', '09:30', '10:00', '10:10', '10:30', '11:00', '13:00', '13:10', '13:30', '14:00', '14:10', '17:00', '17:10', '17:30', '18:00', '19:00'];
-                        var demoStaff = ['Ida', 'Christel', 'Rianne'];
-                        html += '<div class="ev-slot-grid">';
-                        for (var s = 0; s < demoSlots.length; s++) {
-                            var staffName = demoStaff[s % 3];
-                            var selectedCls = (state.selectedSlots[d] && state.selectedSlots[d].time === demoSlots[s]) ? ' selected' : '';
-                            var daytimeCls = isDaytimeSlot(demoSlots[s]) ? ' ev-slot-daytime' : '';
-                            html += '<button type="button" class="ev-slot-btn' + selectedCls + daytimeCls + '" data-apt="' + d + '" data-time="' + demoSlots[s] + '" data-staff="' + staffName + '">';
-                            html += '<span class="ev-slot-time">' + demoSlots[s] + '</span>';
-                            html += '<span class="ev-slot-staff">' + staffName + '</span>';
-                            if (isDaytimeSlot(demoSlots[s])) {
-                                html += '<span class="ev-slot-discount">\u2212\u20AC10</span>';
-                            }
-                            html += '</button>';
-                        }
-                        html += '</div>';
-                    }
-                } else {
-                    html += '<p class="ev-slot-no-date">Kies eerst een gewenste datum in de vorige stap</p>';
-                }
-                html += '</div>';
-            }
-
-            container.innerHTML = html;
-            return;
-        }
-
-        // Live mode – render fetched slots from Bookly
+        // Render fetched slots from Bookly
         for (var i = 0; i < state.packageQty; i++) {
             var aptLive = state.appointments[i];
             var cfgLive = getEffectiveConfig(i);
@@ -1065,12 +994,6 @@
     }
 
     function submitBooking() {
-        if (!isWordPress()) {
-            // Demo fallback – show inline confirmation
-            renderConfirmation(null);
-            return;
-        }
-
         if (!validateCustomerFields()) {
             return;
         }
