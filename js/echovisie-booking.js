@@ -25,7 +25,7 @@
           icon: '\uD83D\uDCCF', desc: 'Groei en ontwikkeling bekijken' }
     ];
 
-    var STEP_LABELS = ['Samenstellen', 'Afspraken', 'Planning'];
+    var STEP_LABELS = ['Samenstellen', 'Afspraken', 'Planning', 'Tijdslot'];
 
     /* =========================================================
        STATE
@@ -39,7 +39,14 @@
         // Per-appointment configuration
         appointments: [
             makeDefaultAppointment()
-        ]
+        ],
+
+        // Timeslot selection (fetched from Bookly)
+        availableSlots: {},    // { aptIdx: [ { date, time, staff_id, staff_name }, ... ] }
+        selectedSlots: {},     // { aptIdx: { date, time, staff_id, staff_name } }
+        slotsLoading: false,
+        slotsError: null,
+        bookingInProgress: false
     };
 
     function makeDefaultAppointment() {
@@ -455,6 +462,9 @@
             renderPregnancy();
             renderDatePickers();
         }
+        if (step === 3) {
+            fetchAvailableSlots();
+        }
     }
 
     /* =========================================================
@@ -788,6 +798,249 @@
     }
 
     /* =========================================================
+       STEP 3 – TIMESLOT SELECTION (fetched from Bookly via AJAX)
+       ========================================================= */
+    function isWordPress() {
+        return typeof echovisieBooking !== 'undefined' && echovisieBooking.ajaxUrl;
+    }
+
+    function fetchAvailableSlots() {
+        if (!isWordPress()) return;
+
+        state.slotsLoading = true;
+        state.slotsError = null;
+        renderTimeslots();
+
+        syncAppointmentCount();
+        var aptData = [];
+        for (var i = 0; i < state.packageQty; i++) {
+            var cfg = getEffectiveConfig(i);
+            aptData.push({
+                duration: cfg.duration,
+                timeSlot: cfg.timeSlot,
+                date: state.appointments[i].date
+            });
+        }
+
+        var formData = new FormData();
+        formData.append('action', 'echovisie_get_slots');
+        formData.append('nonce', echovisieBooking.nonce);
+        formData.append('config', JSON.stringify({
+            packageQty: state.packageQty,
+            appointments: aptData
+        }));
+
+        fetch(echovisieBooking.ajaxUrl, { method: 'POST', body: formData })
+            .then(function (res) { return res.json(); })
+            .then(function (resp) {
+                state.slotsLoading = false;
+                if (resp.success && resp.data && resp.data.slots) {
+                    state.availableSlots = resp.data.slots;
+                } else {
+                    state.slotsError = (resp.data && resp.data.message) || 'Kon beschikbaarheid niet ophalen.';
+                }
+                renderTimeslots();
+            })
+            .catch(function () {
+                state.slotsLoading = false;
+                state.slotsError = 'Verbindingsfout. Probeer het opnieuw.';
+                renderTimeslots();
+            });
+    }
+
+    function renderTimeslots() {
+        var container = document.getElementById('ev-timeslots-container');
+        if (!container) return;
+
+        syncAppointmentCount();
+        var html = '';
+
+        if (state.slotsLoading) {
+            html += '<div class="ev-slots-loading">';
+            html += '<div class="ev-loading-spinner"></div>';
+            html += '<p>Beschikbaarheid ophalen bij Ida, Christel en Rianne...</p>';
+            html += '</div>';
+            container.innerHTML = html;
+            return;
+        }
+
+        if (state.slotsError) {
+            html += '<div class="ev-preg-error">' + state.slotsError + '</div>';
+            html += '<button type="button" class="ev-slot-retry-btn" id="ev-retry-slots">Opnieuw proberen</button>';
+            container.innerHTML = html;
+            return;
+        }
+
+        if (!isWordPress()) {
+            // Demo mode – no Bookly available
+            html += '<div class="ev-slots-demo-notice">';
+            html += '<p style="text-align:center;color:var(--ev-text-muted);padding:1rem;">';
+            html += 'In de live-omgeving worden hier de beschikbare tijdsloten van ';
+            html += '<strong>Ida, Christel en Rianne</strong> geladen vanuit Bookly.';
+            html += '</p></div>';
+
+            // Show dummy slots for demo purposes
+            for (var d = 0; d < state.packageQty; d++) {
+                var apt = state.appointments[d];
+                var cfg = getEffectiveConfig(d);
+                var label = state.packageQty > 1
+                    ? 'Afspraak ' + (d + 1) + ' (' + cfg.duration + ' min)'
+                    : 'Jouw echo (' + cfg.duration + ' min)';
+
+                html += '<div class="ev-slot-group">';
+                html += '<h4 class="ev-slot-group-title">' + label + '</h4>';
+
+                if (apt.date) {
+                    var dateObj = parseDate(apt.date);
+                    html += '<p class="ev-slot-date-label">Beschikbaar op <strong>' + formatDateNL(dateObj) + '</strong></p>';
+
+                    var demoSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '13:00', '13:30', '14:00'];
+                    var demoStaff = ['Ida', 'Christel', 'Rianne'];
+                    html += '<div class="ev-slot-grid">';
+                    for (var s = 0; s < demoSlots.length; s++) {
+                        var staffName = demoStaff[s % 3];
+                        var selectedCls = (state.selectedSlots[d] && state.selectedSlots[d].time === demoSlots[s]) ? ' selected' : '';
+                        html += '<button type="button" class="ev-slot-btn' + selectedCls + '" data-apt="' + d + '" data-time="' + demoSlots[s] + '" data-staff="' + staffName + '">';
+                        html += '<span class="ev-slot-time">' + demoSlots[s] + '</span>';
+                        html += '<span class="ev-slot-staff">' + staffName + '</span>';
+                        html += '</button>';
+                    }
+                    html += '</div>';
+                } else {
+                    html += '<p class="ev-slot-no-date">Kies eerst een gewenste datum in de vorige stap</p>';
+                }
+                html += '</div>';
+            }
+
+            container.innerHTML = html;
+            return;
+        }
+
+        // Live mode – render fetched slots from Bookly
+        for (var i = 0; i < state.packageQty; i++) {
+            var aptLive = state.appointments[i];
+            var cfgLive = getEffectiveConfig(i);
+            var labelLive = state.packageQty > 1
+                ? 'Afspraak ' + (i + 1) + ' (' + cfgLive.duration + ' min)'
+                : 'Jouw echo (' + cfgLive.duration + ' min)';
+
+            html += '<div class="ev-slot-group">';
+            html += '<h4 class="ev-slot-group-title">' + labelLive + '</h4>';
+
+            var slots = state.availableSlots[i] || [];
+
+            if (!aptLive.date) {
+                html += '<p class="ev-slot-no-date">Kies eerst een gewenste datum in de vorige stap</p>';
+            } else if (slots.length === 0) {
+                html += '<p class="ev-slot-no-date">Geen beschikbare tijdsloten gevonden voor deze datum. Probeer een andere datum.</p>';
+            } else {
+                var dateObj2 = parseDate(aptLive.date);
+                html += '<p class="ev-slot-date-label">Beschikbaar op <strong>' + formatDateNL(dateObj2) + '</strong></p>';
+                html += '<div class="ev-slot-grid">';
+                for (var j = 0; j < slots.length; j++) {
+                    var slot = slots[j];
+                    var isSelected = state.selectedSlots[i]
+                        && state.selectedSlots[i].time === slot.time
+                        && state.selectedSlots[i].staff_id === slot.staff_id;
+                    var selCls = isSelected ? ' selected' : '';
+                    html += '<button type="button" class="ev-slot-btn' + selCls + '" data-apt="' + i + '" data-time="' + slot.time + '" data-staff-id="' + slot.staff_id + '" data-staff="' + (slot.staff_name || '') + '">';
+                    html += '<span class="ev-slot-time">' + slot.time + '</span>';
+                    if (slot.staff_name) {
+                        html += '<span class="ev-slot-staff">' + slot.staff_name + '</span>';
+                    }
+                    html += '</button>';
+                }
+                html += '</div>';
+            }
+
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+    }
+
+    function submitBooking() {
+        if (!isWordPress()) {
+            // Demo fallback
+            var calc = calculateTotal();
+            var msg = 'Bedankt voor je interesse! Je selectie:\n\n';
+            for (var i = 0; i < state.packageQty; i++) {
+                var cfg = getEffectiveConfig(i);
+                if (state.packageQty > 1) msg += 'Afspraak ' + (i + 1) + ':\n';
+                msg += '  Duur: ' + cfg.duration + ' minuten\n';
+                msg += '  Tijdstip: ' + (cfg.timeSlot === 'working' ? 'Overdag (\u20AC10 korting)' : 'Avond/Weekend') + '\n';
+                var slotInfo = state.selectedSlots[i];
+                if (slotInfo) {
+                    msg += '  Slot: ' + slotInfo.time + ' bij ' + slotInfo.staff + '\n';
+                }
+                msg += '\n';
+            }
+            msg += 'Totaal: ' + euro(calc.total) + '\n\n';
+            msg += 'Neem contact op om je afspraak te bevestigen!';
+            alert(msg);
+            return;
+        }
+
+        state.bookingInProgress = true;
+        updateBookButton();
+
+        syncAppointmentCount();
+        var aptData = [];
+        for (var j = 0; j < state.packageQty; j++) {
+            var cfgJ = getEffectiveConfig(j);
+            var slotJ = state.selectedSlots[j] || {};
+            aptData.push({
+                duration: cfgJ.duration,
+                timeSlot: cfgJ.timeSlot,
+                addons: cfgJ.addons,
+                date: state.appointments[j].date,
+                slotTime: slotJ.time || '',
+                staffId: slotJ.staff_id || ''
+            });
+        }
+
+        var formData = new FormData();
+        formData.append('action', 'echovisie_book');
+        formData.append('nonce', echovisieBooking.nonce);
+        formData.append('config', JSON.stringify({
+            packageQty: state.packageQty,
+            appointments: aptData,
+            pregType: state.pregType,
+            pregDate: state.pregDate
+        }));
+
+        fetch(echovisieBooking.ajaxUrl, { method: 'POST', body: formData })
+            .then(function (res) { return res.json(); })
+            .then(function (resp) {
+                state.bookingInProgress = false;
+                updateBookButton();
+                if (resp.success && resp.data && resp.data.redirect) {
+                    window.location.href = resp.data.redirect;
+                } else {
+                    var errMsg = (resp.data && resp.data.message) || 'Er ging iets mis. Probeer het opnieuw.';
+                    alert(errMsg);
+                }
+            })
+            .catch(function () {
+                state.bookingInProgress = false;
+                updateBookButton();
+                alert('Verbindingsfout. Controleer je internetverbinding en probeer het opnieuw.');
+            });
+    }
+
+    function updateBookButton() {
+        var btn = document.getElementById('ev-book-btn');
+        if (!btn) return;
+        if (state.bookingInProgress) {
+            btn.disabled = true;
+            btn.textContent = 'Bezig met boeken...';
+        } else {
+            btn.disabled = false;
+            btn.textContent = 'Afspraak boeken';
+        }
+    }
+
+    /* =========================================================
        PRICE SUMMARY (iterates over all appointments)
        ========================================================= */
     function calculateTotal() {
@@ -872,6 +1125,9 @@
         if (state.currentStep === 2) {
             renderPregnancy();
             renderDatePickers();
+        }
+        if (state.currentStep === 3) {
+            renderTimeslots();
         }
         renderSummary();
     }
@@ -1108,28 +1364,35 @@
             });
         }
 
+        // Timeslot selection (step 3, delegated)
+        var timeslotsContainer = document.getElementById('ev-timeslots-container');
+        if (timeslotsContainer) {
+            timeslotsContainer.addEventListener('click', function (e) {
+                var slotBtn = e.target.closest('.ev-slot-btn');
+                if (slotBtn) {
+                    var aptIdx = parseInt(slotBtn.getAttribute('data-apt'), 10);
+                    state.selectedSlots[aptIdx] = {
+                        time: slotBtn.getAttribute('data-time'),
+                        staff_id: slotBtn.getAttribute('data-staff-id') || '',
+                        staff: slotBtn.getAttribute('data-staff') || ''
+                    };
+                    renderTimeslots();
+                    renderSummary();
+                    return;
+                }
+
+                // Retry button
+                if (e.target.id === 'ev-retry-slots' || e.target.closest('#ev-retry-slots')) {
+                    fetchAvailableSlots();
+                }
+            });
+        }
+
         // Book button
         var bookBtn = document.getElementById('ev-book-btn');
         if (bookBtn) {
             bookBtn.addEventListener('click', function () {
-                var calc = calculateTotal();
-                var msg = 'Bedankt voor je interesse! Je selectie:\n\n';
-
-                for (var i = 0; i < state.packageQty; i++) {
-                    var cfg = getEffectiveConfig(i);
-                    if (state.packageQty > 1) msg += 'Afspraak ' + (i + 1) + ':\n';
-                    msg += '  Duur: ' + cfg.duration + ' minuten\n';
-                    msg += '  Tijdstip: ' + (cfg.timeSlot === 'working' ? 'Overdag (\u20AC10 korting)' : 'Avond/Weekend') + '\n';
-                    if (state.appointments[i].date) {
-                        var d = parseDate(state.appointments[i].date);
-                        msg += '  Datum: ' + (d ? formatDateNL(d) : state.appointments[i].date) + '\n';
-                    }
-                    msg += '\n';
-                }
-
-                msg += 'Totaal: ' + euro(calc.total) + '\n\n';
-                msg += 'Neem contact op om je afspraak te bevestigen!';
-                alert(msg);
+                submitBooking();
             });
         }
 
