@@ -1028,22 +1028,8 @@
 
     function submitBooking() {
         if (!isWordPress()) {
-            // Demo fallback
-            var calc = calculateTotal();
-            var msg = 'Bedankt voor je interesse! Je selectie:\n\n';
-            for (var i = 0; i < state.packageQty; i++) {
-                var cfg = getEffectiveConfig(i);
-                if (state.packageQty > 1) msg += 'Afspraak ' + (i + 1) + ':\n';
-                msg += '  Duur: ' + cfg.duration + ' minuten\n';
-                var slotInfo = state.selectedSlots[i];
-                if (slotInfo) {
-                    msg += '  Slot: ' + slotInfo.time + ' bij ' + slotInfo.staff + '\n';
-                }
-                msg += '\n';
-            }
-            msg += 'Totaal: ' + euro(calc.total) + '\n\n';
-            msg += 'Neem contact op om je afspraak te bevestigen!';
-            alert(msg);
+            // Demo fallback – show inline confirmation
+            renderConfirmation(null);
             return;
         }
 
@@ -1057,7 +1043,6 @@
             var slotJ = state.selectedSlots[j] || {};
             aptData.push({
                 duration: cfgJ.duration,
-                timeSlot: getTimeSlotForApt(j),
                 addons: cfgJ.addons,
                 date: state.appointments[j].date,
                 slotTime: slotJ.time || '',
@@ -1080,8 +1065,8 @@
             .then(function (resp) {
                 state.bookingInProgress = false;
                 updateBookButton();
-                if (resp.success && resp.data && resp.data.redirect) {
-                    window.location.href = resp.data.redirect;
+                if (resp.success && resp.data) {
+                    renderConfirmation(resp.data.appointments || []);
                 } else {
                     var errMsg = (resp.data && resp.data.message) || 'Er ging iets mis. Probeer het opnieuw.';
                     alert(errMsg);
@@ -1092,6 +1077,68 @@
                 updateBookButton();
                 alert('Verbindingsfout. Controleer je internetverbinding en probeer het opnieuw.');
             });
+    }
+
+    function renderConfirmation(serverApts) {
+        var wrapper = document.getElementById('echovisie-booking');
+        if (!wrapper) return;
+
+        var calc = calculateTotal();
+        var html = '';
+
+        html += '<div class="ev-header" style="background:linear-gradient(135deg, #4CAF50, #388E3C);">';
+        html += '<h2 class="ev-title">\u2705 Afspraak bevestigd!</h2>';
+        html += '<p class="ev-subtitle">Je echo is succesvol ingepland</p>';
+        html += '</div>';
+
+        html += '<div class="ev-section" style="text-align:center;padding:1.5rem;">';
+        html += '<p style="font-size:.92rem;color:var(--ev-text-muted);margin-bottom:1.2rem;">';
+        html += 'Hieronder vind je een overzicht van je afspra' + (state.packageQty > 1 ? 'ken' : 'ak') + '. ';
+        html += 'De betaling vindt plaats in de praktijk (pin/contant).';
+        html += '</p>';
+
+        for (var i = 0; i < state.packageQty; i++) {
+            var cfg = getEffectiveConfig(i);
+            var slot = state.selectedSlots[i] || {};
+            var dateStr = state.appointments[i].date;
+            var dateObj = parseDate(dateStr);
+
+            // Use server data if available, else fall back to local state
+            var staffName = slot.staff || '';
+            var dateLabel = dateObj ? formatDateNL(dateObj) : dateStr;
+            if (serverApts && serverApts[i]) {
+                if (serverApts[i].staff_name) staffName = serverApts[i].staff_name;
+                if (serverApts[i].date_label) dateLabel = serverApts[i].date_label;
+            }
+
+            html += '<div class="ev-apt-card" style="text-align:left;margin-bottom:.8rem;">';
+            html += '<div class="ev-apt-card-header">';
+            html += '<span class="ev-apt-card-number">' + (i + 1) + '</span>';
+            html += '<span class="ev-apt-card-title">' + (state.packageQty > 1 ? 'Afspraak ' + (i + 1) : 'Jouw echo') + '</span>';
+            html += '</div>';
+            html += '<div class="ev-apt-mini-config">';
+            html += '<p style="margin:.4rem 0;font-size:.88rem;"><strong>Datum:</strong> ' + dateLabel + '</p>';
+            html += '<p style="margin:.4rem 0;font-size:.88rem;"><strong>Tijd:</strong> ' + (slot.time || '–') + '</p>';
+            html += '<p style="margin:.4rem 0;font-size:.88rem;"><strong>Duur:</strong> ' + cfg.duration + ' minuten</p>';
+            if (staffName) {
+                html += '<p style="margin:.4rem 0;font-size:.88rem;"><strong>Echoscopist:</strong> ' + staffName + '</p>';
+            }
+            html += '</div>';
+            html += '</div>';
+        }
+
+        html += '<div style="margin-top:1rem;padding:.8rem 1rem;background:var(--ev-primary-light);border-radius:10px;display:inline-block;">';
+        html += '<span style="font-size:1rem;font-weight:700;color:var(--ev-primary-dark);">Totaal: ' + euro(calc.total) + '</span>';
+        html += '<span style="font-size:.82rem;color:var(--ev-text-muted);margin-left:.5rem;">(te betalen in de praktijk)</span>';
+        html += '</div>';
+
+        html += '</div>';
+
+        wrapper.innerHTML = html;
+
+        // Hide the sidebar book button
+        var sidebar = document.querySelector('.ev-sidebar');
+        if (sidebar) sidebar.style.display = 'none';
     }
 
     function updateBookButton() {

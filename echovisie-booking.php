@@ -63,7 +63,6 @@ function echovisie_bookly_config() {
             2 => $str( 'coupon_2', 'PAKKET2' ),
             3 => $str( 'coupon_3', 'PAKKET3' ),
         ),
-        'checkout_page_slug' => $str( 'checkout_page_slug', 'echo-boeken' ),
         'custom_fields' => array(
             'pregnancy_week' => $int( 'cf_pregnancy_week' ),
             'due_date'       => $int( 'cf_due_date' ),
@@ -81,9 +80,8 @@ function echovisie_enqueue_assets() {
     global $post;
 
     $has_configurator = is_a( $post, 'WP_Post' ) && has_shortcode( $post->post_content, 'echovisie_booking' );
-    $has_checkout     = is_a( $post, 'WP_Post' ) && has_shortcode( $post->post_content, 'echovisie_checkout' );
 
-    if ( $has_configurator || $has_checkout ) {
+    if ( $has_configurator ) {
         wp_enqueue_style(
             'echovisie-google-fonts',
             'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap',
@@ -107,12 +105,9 @@ function echovisie_enqueue_assets() {
             true
         );
 
-        $config = echovisie_bookly_config();
-
         wp_localize_script( 'echovisie-booking-js', 'echovisieBooking', array(
-            'ajaxUrl'     => admin_url( 'admin-ajax.php' ),
-            'nonce'       => wp_create_nonce( 'echovisie_book' ),
-            'checkoutUrl' => home_url( '/' . $config['checkout_page_slug'] . '/' ),
+            'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+            'nonce'   => wp_create_nonce( 'echovisie_book' ),
         ) );
     }
 }
@@ -120,7 +115,7 @@ add_action( 'wp_enqueue_scripts', 'echovisie_enqueue_assets' );
 
 
 /* =================================================================
-   AJAX HANDLER – Receive configurator data, store, return redirect
+   AJAX HANDLER – Create Bookly appointments directly
    ================================================================= */
 
 add_action( 'wp_ajax_echovisie_book',        'echovisie_ajax_book' );
@@ -138,88 +133,107 @@ function echovisie_ajax_book() {
 
     $config = echovisie_bookly_config();
 
-    // Sanitize and validate
+    if ( ! class_exists( '\Bookly\Lib\Entities\Appointment' ) ) {
+        wp_send_json_error( array( 'message' => 'Bookly is niet beschikbaar. Neem contact op met de beheerder.' ) );
+    }
+
     $package_qty = absint( $data['packageQty'] ?? 1 );
     if ( $package_qty < 1 || $package_qty > 3 ) {
         $package_qty = 1;
     }
 
-    $appointments = array();
+    // Pregnancy info for internal notes
+    $preg_type = sanitize_text_field( $data['pregType'] ?? '' );
+    $preg_date = sanitize_text_field( $data['pregDate'] ?? '' );
+
+    $created_appointments = array();
+
     for ( $i = 0; $i < $package_qty; $i++ ) {
         $apt = $data['appointments'][ $i ] ?? array();
 
         $duration  = absint( $apt['duration'] ?? 10 );
-        $time_slot = sanitize_text_field( $apt['timeSlot'] ?? 'unknown' );
         $slot_time = sanitize_text_field( $apt['slotTime'] ?? '' );
         $date      = sanitize_text_field( $apt['date'] ?? '' );
+        $staff_id  = absint( $apt['staffId'] ?? 0 );
 
-        // Validate duration is a valid step
         if ( ! in_array( $duration, array( 10, 20, 30, 40, 50, 60 ), true ) ) {
             $duration = 10;
         }
 
-        // Map to Bookly service ID
         $service_id = $config['services'][ $duration ] ?? 0;
 
-        // Map addons to Bookly extras
-        $extras = array();
+        if ( $service_id <= 0 ) {
+            wp_send_json_error( array( 'message' => 'Service niet geconfigureerd voor ' . $duration . ' minuten.' ) );
+        }
+
+        if ( ! $date || ! $slot_time ) {
+            wp_send_json_error( array( 'message' => 'Datum en tijdslot zijn verplicht voor afspraak ' . ( $i + 1 ) . '.' ) );
+        }
+
+        // Calculate start and end dates
+        $start_date = $date . ' ' . $slot_time . ':00';
+        $end_date   = gmdate( 'Y-m-d H:i:s', strtotime( $start_date ) + $duration * 60 );
+
+        // Build internal note with booking details
+        $note_parts = array( 'EchoVisie boeking — ' . $duration . ' min' );
+
         $raw_addons = $apt['addons'] ?? array();
+        $addon_names = array();
         foreach ( $raw_addons as $addon_id => $addon_data ) {
             $addon_id = sanitize_key( $addon_id );
             $qty = absint( $addon_data['qty'] ?? 0 );
-            if ( $qty > 0 && isset( $config['extras'][ $addon_id ] ) && $config['extras'][ $addon_id ] > 0 ) {
-                $extras[] = array(
-                    'bookly_extra_id' => $config['extras'][ $addon_id ],
-                    'quantity'        => $qty,
-                );
+            if ( $qty > 0 ) {
+                $addon_names[] = $addon_id . ' x' . $qty;
             }
         }
+        if ( ! empty( $addon_names ) ) {
+            $note_parts[] = "Extra's: " . implode( ', ', $addon_names );
+        }
 
-        $appointments[] = array(
-            'index'      => $i,
-            'duration'   => $duration,
-            'time_slot'  => $time_slot,
-            'slot_time'  => $slot_time,
-            'date'       => $date,
-            'service_id' => $service_id,
-            'extras'     => $extras,
-        );
-    }
+        if ( $preg_date ) {
+            $preg_label = $preg_type === 'due' ? 'Uitgerekende datum' : 'Eerste dag LM';
+            $note_parts[] = $preg_label . ': ' . $preg_date;
+        }
 
-    // Pregnancy info
-    $preg_type = sanitize_text_field( $data['pregType'] ?? '' );
-    $preg_date = sanitize_text_field( $data['pregDate'] ?? '' );
+        if ( $package_qty > 1 ) {
+            $note_parts[] = 'Pakket: afspraak ' . ( $i + 1 ) . ' van ' . $package_qty;
+        }
 
-    // Custom fields for Bookly
-    $custom_fields = array();
-    if ( $preg_date ) {
-        if ( $config['custom_fields']['due_date'] > 0 ) {
-            $custom_fields[] = array(
-                'id'    => $config['custom_fields']['due_date'],
-                'value' => $preg_date,
+        // Create Bookly appointment
+        try {
+            $appointment = new \Bookly\Lib\Entities\Appointment();
+            $appointment->setServiceId( $service_id );
+            $appointment->setStaffId( $staff_id );
+            $appointment->setStartDate( $start_date );
+            $appointment->setEndDate( $end_date );
+            $appointment->setInternalNote( implode( "\n", $note_parts ) );
+            $appointment->save();
+
+            // Resolve staff name for confirmation
+            $staff_name = '';
+            if ( $staff_id > 0 && class_exists( '\Bookly\Lib\Entities\Staff' ) ) {
+                $staff = \Bookly\Lib\Entities\Staff::find( $staff_id );
+                if ( $staff ) {
+                    $staff_name = $staff->getFullName();
+                }
+            }
+
+            $created_appointments[] = array(
+                'id'         => $appointment->getId(),
+                'date'       => $date,
+                'date_label' => date_i18n( 'l j F Y', strtotime( $date ) ),
+                'time'       => $slot_time,
+                'duration'   => $duration,
+                'staff_name' => $staff_name,
             );
+        } catch ( \Exception $e ) {
+            wp_send_json_error( array( 'message' => 'Fout bij het aanmaken van afspraak ' . ( $i + 1 ) . ': ' . $e->getMessage() ) );
         }
     }
 
-    // Build booking token and store in transient (expires in 2 hours)
-    $token = wp_generate_password( 32, false );
-    $booking_data = array(
-        'package_qty'   => $package_qty,
-        'appointments'  => $appointments,
-        'preg_type'     => $preg_type,
-        'preg_date'     => $preg_date,
-        'custom_fields' => $custom_fields,
-        'coupon'        => $config['coupons'][ $package_qty ] ?? '',
-        'created_at'    => current_time( 'mysql' ),
-    );
-
-    set_transient( 'echovisie_booking_' . $token, $booking_data, 2 * HOUR_IN_SECONDS );
-
-    $checkout_url = add_query_arg( 'ev_token', $token, home_url( '/' . $config['checkout_page_slug'] . '/' ) );
-
     wp_send_json_success( array(
-        'redirect' => $checkout_url,
-        'token'    => $token,
+        'message'      => 'Je afspraak is bevestigd!',
+        'appointments' => $created_appointments,
     ) );
 }
 
@@ -422,225 +436,6 @@ function echovisie_find_nearby_dates( $service_id, $date, $duration_min, $count 
 }
 
 
-/* =================================================================
-   CHECKOUT SHORTCODE – [echovisie_checkout]
-   Renders the booking summary + Bookly forms for slot selection.
-   Place this shortcode on a page with slug matching checkout_page_slug.
-   ================================================================= */
-
-add_shortcode( 'echovisie_checkout', 'echovisie_checkout_shortcode' );
-
-function echovisie_checkout_shortcode() {
-    $token = isset( $_GET['ev_token'] ) ? sanitize_text_field( $_GET['ev_token'] ) : '';
-
-    if ( ! $token ) {
-        return '<div class="ev-booking-wrapper"><div class="ev-booking"><div class="ev-section" style="text-align:center;padding:3rem 1.5rem;">'
-             . '<h3 class="ev-section-title">Geen configuratie gevonden</h3>'
-             . '<p>Ga terug naar de <a href="' . esc_url( home_url() ) . '">configurator</a> om je echo samen te stellen.</p>'
-             . '</div></div></div>';
-    }
-
-    $booking = get_transient( 'echovisie_booking_' . $token );
-    if ( ! $booking ) {
-        return '<div class="ev-booking-wrapper"><div class="ev-booking"><div class="ev-section" style="text-align:center;padding:3rem 1.5rem;">'
-             . '<h3 class="ev-section-title">Sessie verlopen</h3>'
-             . '<p>Je configuratie is verlopen. Ga terug naar de <a href="' . esc_url( home_url() ) . '">configurator</a> om opnieuw te beginnen.</p>'
-             . '</div></div></div>';
-    }
-
-    $config      = echovisie_bookly_config();
-    $appointments = $booking['appointments'];
-    $package_qty  = $booking['package_qty'];
-    $coupon       = $booking['coupon'];
-
-    ob_start();
-    ?>
-    <div class="ev-booking-wrapper">
-        <div class="ev-booking">
-
-            <div class="ev-header">
-                <h2 class="ev-title">Jouw echo-configuratie</h2>
-                <p class="ev-subtitle">Controleer je selectie en kies een beschikbaar tijdstip</p>
-            </div>
-
-            <!-- Appointment summary cards -->
-            <?php foreach ( $appointments as $apt ) :
-                $label = $package_qty > 1
-                    ? 'Afspraak ' . ( $apt['index'] + 1 )
-                    : 'Jouw echo';
-                $slot_time = $apt['slot_time'] ?? '';
-                $time_label = '';
-                if ( $slot_time ) {
-                    $time_label = $slot_time < '17:00' ? 'Overdag (' . esc_html( $slot_time ) . ')' : 'Avond (' . esc_html( $slot_time ) . ')';
-                }
-                $preferred_date = $apt['date']
-                    ? date_i18n( 'j F Y', strtotime( $apt['date'] ) )
-                    : 'Nog niet gekozen';
-            ?>
-            <div class="ev-section">
-                <div class="ev-apt-card">
-                    <div class="ev-apt-card-header">
-                        <span class="ev-apt-card-number"><?php echo esc_html( $apt['index'] + 1 ); ?></span>
-                        <span class="ev-apt-card-title"><?php echo esc_html( $label ); ?></span>
-                        <span class="ev-apt-card-summary">
-                            <?php echo esc_html( $apt['duration'] ); ?> min<?php if ( $time_label ) : ?> &middot;
-                            <?php echo $time_label; ?><?php endif; ?>
-                        </span>
-                    </div>
-                    <div class="ev-apt-mini-config">
-                        <p style="margin:.4rem 0;font-size:.88rem;">
-                            <strong>Gewenste datum:</strong> <?php echo esc_html( $preferred_date ); ?>
-                        </p>
-                        <?php if ( ! empty( $apt['extras'] ) ) : ?>
-                        <p style="margin:.4rem 0;font-size:.85rem;color:var(--ev-text-muted);">
-                            <strong>Extra's:</strong>
-                            <?php echo esc_html( count( $apt['extras'] ) ); ?> optie(s) geselecteerd
-                        </p>
-                        <?php endif; ?>
-                    </div>
-                </div>
-
-                <?php
-                // Render Bookly form for this appointment, pre-selecting the service
-                if ( $apt['service_id'] > 0 && shortcode_exists( 'bookly-form' ) ) :
-                    // Hide service/category selection since we pre-selected it
-                    // Show date, time, details, payment steps
-                    $bookly_atts = 'service_id="' . absint( $apt['service_id'] ) . '"';
-                    $bookly_atts .= ' hide="categories,services"';
-
-                    // Pre-select date if available
-                    if ( $apt['date'] ) {
-                        $bookly_atts .= ' date="' . esc_attr( $apt['date'] ) . '"';
-                    }
-                ?>
-                <div class="ev-bookly-form-wrap" style="margin-top:1rem;">
-                    <h4 style="font-size:.92rem;font-weight:600;color:var(--ev-primary-dark);margin-bottom:.5rem;">
-                        Kies een beschikbaar tijdstip
-                    </h4>
-                    <?php echo do_shortcode( '[bookly-form ' . $bookly_atts . ']' ); ?>
-                </div>
-                <?php elseif ( $apt['service_id'] === 0 ) : ?>
-                <div class="ev-preg-error" style="margin-top:.8rem;">
-                    <strong>Let op:</strong> De Bookly-koppeling is nog niet geconfigureerd.
-                    Ga naar <a href="<?php echo esc_url( admin_url( 'admin.php?page=echovisie-settings' ) ); ?>">EchoVisie Instellingen</a>
-                    en vul de Bookly Service-ID's in.
-                </div>
-                <?php endif; ?>
-            </div>
-            <?php endforeach; ?>
-
-            <?php if ( $coupon && $package_qty > 1 ) : ?>
-            <div class="ev-section" style="text-align:center;">
-                <div style="background:var(--ev-primary-light);border-radius:10px;padding:.8rem 1rem;display:inline-block;">
-                    <span style="font-size:.88rem;font-weight:600;color:var(--ev-primary-dark);">
-                        Pakketkorting: gebruik code
-                        <strong style="background:var(--ev-primary);color:#fff;padding:.2rem .6rem;border-radius:6px;margin-left:.3rem;">
-                            <?php echo esc_html( $coupon ); ?>
-                        </strong>
-                        bij het afrekenen
-                    </span>
-                </div>
-            </div>
-            <?php endif; ?>
-
-            <?php if ( $booking['preg_date'] ) : ?>
-            <div class="ev-section" style="font-size:.85rem;color:var(--ev-text-muted);">
-                <strong>Zwangerschapsinfo:</strong>
-                <?php
-                if ( $booking['preg_type'] === 'due' ) {
-                    echo 'Uitgerekende datum: ' . esc_html( date_i18n( 'j F Y', strtotime( $booking['preg_date'] ) ) );
-                } else {
-                    echo 'Eerste dag laatste menstruatie: ' . esc_html( date_i18n( 'j F Y', strtotime( $booking['preg_date'] ) ) );
-                }
-                ?>
-            </div>
-            <?php endif; ?>
-
-            <div class="ev-step-nav">
-                <a href="javascript:history.back()" class="ev-step-prev-btn">&larr; Terug naar configurator</a>
-                <span></span>
-            </div>
-
-        </div>
-    </div>
-    <?php
-    return ob_get_clean();
-}
-
-
-/* =================================================================
-   BOOKLY CART HELPER (for programmatic cart population)
-   =================================================================
-   This function attempts to pre-populate Bookly's cart with the
-   appointments from the EchoVisie configurator. Call this from
-   the checkout page if you want seamless cart integration.
-
-   NOTE: This uses Bookly's internal classes which are not part of
-   their public API. Test thoroughly after Bookly updates.
-   ================================================================= */
-
-function echovisie_populate_bookly_cart( $booking_data ) {
-    // Check if Bookly classes are available
-    if ( ! class_exists( '\Bookly\Lib\Entities\Service' ) ) {
-        return false;
-    }
-
-    $config = echovisie_bookly_config();
-    $items = array();
-
-    foreach ( $booking_data['appointments'] as $apt ) {
-        $service_id = $apt['service_id'];
-        if ( $service_id <= 0 ) {
-            continue;
-        }
-
-        // Build extras array in Bookly format: [ extra_id => quantity ]
-        $extras = array();
-        foreach ( $apt['extras'] as $extra ) {
-            if ( $extra['bookly_extra_id'] > 0 ) {
-                $extras[ $extra['bookly_extra_id'] ] = $extra['quantity'];
-            }
-        }
-
-        // Build custom fields array
-        $custom_fields = $booking_data['custom_fields'] ?? array();
-
-        $items[] = array(
-            'service_id'    => $service_id,
-            'staff_ids'     => array(), // empty = any available staff
-            'date_from'     => $apt['date'] ?: null,
-            'extras'        => $extras,
-            'custom_fields' => $custom_fields,
-            'number_of_persons' => 1,
-        );
-    }
-
-    // Store in session for Bookly to pick up
-    if ( ! session_id() ) {
-        session_start();
-    }
-    $_SESSION['echovisie_bookly_cart_items'] = $items;
-    $_SESSION['echovisie_bookly_coupon']     = $booking_data['coupon'] ?? '';
-
-    return true;
-}
-
-
-/* =================================================================
-   BOOKLY SERVICE EXTRAS HELPER
-   =================================================================
-   When Bookly loads a service, this filter can inject the selected
-   extras from the EchoVisie configurator. Hook into Bookly's
-   appointment creation to pass extras along.
-   ================================================================= */
-
-add_action( 'bookly_appointment_status_changed', 'echovisie_on_bookly_appointment', 10, 3 );
-
-function echovisie_on_bookly_appointment( $appointment, $status, $old_status ) {
-    // This hook fires when a Bookly appointment status changes.
-    // You can use this to sync data back to your system,
-    // send custom notifications, or update external CRMs.
-}
 
 
 /* =================================================================

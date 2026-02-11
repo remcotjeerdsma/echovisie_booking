@@ -154,27 +154,6 @@ function echovisie_register_settings() {
         )
     );
 
-    /* --- Section: Checkout --- */
-    add_settings_section(
-        'echovisie_checkout_section',
-        'Checkout-pagina',
-        'echovisie_checkout_section_cb',
-        'echovisie-settings'
-    );
-
-    add_settings_field(
-        'echovisie_checkout_page_slug',
-        'Pagina-slug',
-        'echovisie_text_field_cb',
-        'echovisie-settings',
-        'echovisie_checkout_section',
-        array(
-            'key'         => 'checkout_page_slug',
-            'description' => 'De slug van de WordPress-pagina met de <code>[echovisie_checkout]</code> shortcode',
-            'placeholder' => 'echo-boeken',
-        )
-    );
-
     /* --- Section: Custom Fields --- */
     add_settings_section(
         'echovisie_custom_fields_section',
@@ -224,7 +203,6 @@ function echovisie_default_settings() {
         'staff_rianne'       => 0,
         'coupon_2'           => 'PAKKET2',
         'coupon_3'           => 'PAKKET3',
-        'checkout_page_slug' => 'echo-boeken',
         'cf_pregnancy_week'  => 0,
         'cf_due_date'        => 0,
         'cf_notes'           => 0,
@@ -268,10 +246,6 @@ function echovisie_staff_section_cb() {
 
 function echovisie_coupons_section_cb() {
     echo '<p>Maak kortingscoupons aan in <strong>Bookly &rarr; Coupons</strong> en vul de codes hieronder in.</p>';
-}
-
-function echovisie_checkout_section_cb() {
-    echo '<p>Maak een WordPress-pagina aan en voeg de shortcode <code>[echovisie_checkout]</code> toe. Vul hieronder de slug van die pagina in.</p>';
 }
 
 function echovisie_custom_fields_section_cb() {
@@ -365,11 +339,7 @@ function echovisie_settings_page() {
             <tbody>
                 <tr>
                     <td><code>[echovisie_booking]</code></td>
-                    <td>Toont de echo-configurator op een pagina.</td>
-                </tr>
-                <tr>
-                    <td><code>[echovisie_checkout]</code></td>
-                    <td>Toont de checkout-pagina met Bookly-formulier. Gebruik op de pagina met slug <strong><?php echo esc_html( $settings['checkout_page_slug'] ?? 'echo-boeken' ); ?></strong>.</td>
+                    <td>Toont de echo-configurator met directe Bookly-boeking op een pagina.</td>
                 </tr>
             </tbody>
         </table>
