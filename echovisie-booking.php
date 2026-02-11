@@ -258,12 +258,22 @@ function echovisie_ajax_get_slots() {
         $service_id = $config['services'][ $duration ] ?? 0;
         $slots_for_apt = array();
 
+        $alternatives = array();
+
         if ( $service_id > 0 && $date && class_exists( '\Bookly\Lib\Entities\Staff' ) ) {
             // Query Bookly for available slots on the given date
             $slots_for_apt = echovisie_query_bookly_slots( $service_id, $date, $duration );
+
+            // If no slots found, search nearby dates for alternatives
+            if ( empty( $slots_for_apt ) ) {
+                $alternatives = echovisie_find_nearby_dates( $service_id, $date, $duration, 2 );
+            }
         }
 
-        $all_slots[ $i ] = $slots_for_apt;
+        $all_slots[ $i ] = array(
+            'slots'        => $slots_for_apt,
+            'alternatives' => $alternatives,
+        );
     }
 
     wp_send_json_success( array( 'slots' => $all_slots ) );
@@ -370,6 +380,43 @@ function echovisie_query_bookly_slots( $service_id, $date, $duration_min ) {
     }
 
     return $slots;
+}
+
+/**
+ * Find the nearest dates with available slots, starting from $date.
+ *
+ * Searches up to 14 days forward from $date to find $count dates
+ * that have at least one available slot. Returns an array of
+ * [ { date: 'YYYY-MM-DD', date_label: '15 maart 2026', slot_count: 12 }, ... ]
+ */
+function echovisie_find_nearby_dates( $service_id, $date, $duration_min, $count = 2 ) {
+    $results   = array();
+    $max_days  = 14;
+    $base_time = strtotime( $date );
+
+    if ( ! $base_time ) {
+        return $results;
+    }
+
+    for ( $offset = 0; $offset <= $max_days && count( $results ) < $count; $offset++ ) {
+        // Skip the original date itself (offset 0) — we already know it's empty
+        if ( $offset === 0 ) {
+            continue;
+        }
+
+        $check_date = date( 'Y-m-d', $base_time + $offset * 86400 );
+        $slots      = echovisie_query_bookly_slots( $service_id, $check_date, $duration_min );
+
+        if ( ! empty( $slots ) ) {
+            $results[] = array(
+                'date'       => $check_date,
+                'date_label' => date_i18n( 'l j F', strtotime( $check_date ) ),
+                'slot_count' => count( $slots ),
+            );
+        }
+    }
+
+    return $results;
 }
 
 

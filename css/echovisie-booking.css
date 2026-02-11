@@ -1013,6 +1013,56 @@
     color: #fff;
 }
 
+/* Alternative date suggestions */
+.ev-alt-dates {
+    margin-top: .8rem;
+}
+.ev-alt-dates-label {
+    font-size: .88rem;
+    font-weight: 600;
+    color: var(--ev-text);
+    margin-bottom: .5rem;
+}
+.ev-alt-dates-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: .5rem;
+}
+.ev-alt-date-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .2rem;
+    padding: .8rem 1rem;
+    border: 2px solid var(--ev-primary);
+    border-radius: 10px;
+    background: var(--ev-primary-light);
+    cursor: pointer;
+    transition: background .2s, transform .15s, box-shadow .2s;
+    font-family: inherit;
+    text-align: left;
+}
+.ev-alt-date-btn:hover {
+    background: var(--ev-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(247, 148, 29, .25);
+}
+.ev-alt-date-btn:hover .ev-alt-date-name,
+.ev-alt-date-btn:hover .ev-alt-date-count {
+    color: #fff;
+}
+.ev-alt-date-name {
+    font-size: .92rem;
+    font-weight: 700;
+    color: var(--ev-primary-dark);
+    text-transform: capitalize;
+}
+.ev-alt-date-count {
+    font-size: .78rem;
+    color: var(--ev-text-muted);
+    font-weight: 500;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 860px) {
     .ev-booking-wrapper {

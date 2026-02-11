@@ -43,6 +43,7 @@
 
         // Timeslot selection (fetched from Bookly)
         availableSlots: {},    // { aptIdx: [ { date, time, staff_id, staff_name }, ... ] }
+        alternativeDates: {},  // { aptIdx: [ { date, date_label, slot_count }, ... ] }
         selectedSlots: {},     // { aptIdx: { date, time, staff_id, staff_name } }
         slotsLoading: false,
         slotsError: null,
@@ -835,7 +836,23 @@
             .then(function (resp) {
                 state.slotsLoading = false;
                 if (resp.success && resp.data && resp.data.slots) {
-                    state.availableSlots = resp.data.slots;
+                    // Parse new structure: { aptIdx: { slots: [...], alternatives: [...] } }
+                    state.availableSlots = {};
+                    state.alternativeDates = {};
+                    var rawSlots = resp.data.slots;
+                    for (var key in rawSlots) {
+                        if (rawSlots.hasOwnProperty(key)) {
+                            var entry = rawSlots[key];
+                            if (Array.isArray(entry)) {
+                                // Legacy format (plain array)
+                                state.availableSlots[key] = entry;
+                                state.alternativeDates[key] = [];
+                            } else {
+                                state.availableSlots[key] = entry.slots || [];
+                                state.alternativeDates[key] = entry.alternatives || [];
+                            }
+                        }
+                    }
                 } else {
                     state.slotsError = (resp.data && resp.data.message) || 'Kon beschikbaarheid niet ophalen.';
                 }
@@ -892,20 +909,37 @@
 
                 if (apt.date) {
                     var dateObj = parseDate(apt.date);
-                    html += '<p class="ev-slot-date-label">Beschikbaar op <strong>' + formatDateNL(dateObj) + '</strong></p>';
+                    var dayOfWeek = dateObj ? dateObj.getDay() : 1; // 0=Sun, 6=Sat
 
-                    var demoSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '13:00', '13:30', '14:00'];
-                    var demoStaff = ['Ida', 'Christel', 'Rianne'];
-                    html += '<div class="ev-slot-grid">';
-                    for (var s = 0; s < demoSlots.length; s++) {
-                        var staffName = demoStaff[s % 3];
-                        var selectedCls = (state.selectedSlots[d] && state.selectedSlots[d].time === demoSlots[s]) ? ' selected' : '';
-                        html += '<button type="button" class="ev-slot-btn' + selectedCls + '" data-apt="' + d + '" data-time="' + demoSlots[s] + '" data-staff="' + staffName + '">';
-                        html += '<span class="ev-slot-time">' + demoSlots[s] + '</span>';
-                        html += '<span class="ev-slot-staff">' + staffName + '</span>';
-                        html += '</button>';
+                    // Demo: simulate "no availability" on weekends to show alternatives
+                    if (dayOfWeek === 0 || dayOfWeek === 6) {
+                        html += '<p class="ev-slot-no-date">Geen beschikbare tijdsloten op <strong>' + formatDateNL(dateObj) + '</strong>.</p>';
+
+                        // Generate 2 fake alternative dates (next Monday and Tuesday)
+                        var daysToMon = dayOfWeek === 6 ? 2 : 1;
+                        var alt1 = new Date(dateObj.getTime() + daysToMon * DAY_MS);
+                        var alt2 = new Date(alt1.getTime() + DAY_MS);
+                        var demoAlts = [
+                            { date: formatDateISO(alt1), date_label: formatDateNL(alt1), slot_count: 18 },
+                            { date: formatDateISO(alt2), date_label: formatDateNL(alt2), slot_count: 12 }
+                        ];
+                        html += renderAlternatives(d, demoAlts);
+                    } else {
+                        html += '<p class="ev-slot-date-label">Beschikbaar op <strong>' + formatDateNL(dateObj) + '</strong></p>';
+
+                        var demoSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '13:00', '13:30', '14:00'];
+                        var demoStaff = ['Ida', 'Christel', 'Rianne'];
+                        html += '<div class="ev-slot-grid">';
+                        for (var s = 0; s < demoSlots.length; s++) {
+                            var staffName = demoStaff[s % 3];
+                            var selectedCls = (state.selectedSlots[d] && state.selectedSlots[d].time === demoSlots[s]) ? ' selected' : '';
+                            html += '<button type="button" class="ev-slot-btn' + selectedCls + '" data-apt="' + d + '" data-time="' + demoSlots[s] + '" data-staff="' + staffName + '">';
+                            html += '<span class="ev-slot-time">' + demoSlots[s] + '</span>';
+                            html += '<span class="ev-slot-staff">' + staffName + '</span>';
+                            html += '</button>';
+                        }
+                        html += '</div>';
                     }
-                    html += '</div>';
                 } else {
                     html += '<p class="ev-slot-no-date">Kies eerst een gewenste datum in de vorige stap</p>';
                 }
@@ -928,11 +962,20 @@
             html += '<h4 class="ev-slot-group-title">' + labelLive + '</h4>';
 
             var slots = state.availableSlots[i] || [];
+            var alts = state.alternativeDates[i] || [];
 
             if (!aptLive.date) {
                 html += '<p class="ev-slot-no-date">Kies eerst een gewenste datum in de vorige stap</p>';
             } else if (slots.length === 0) {
-                html += '<p class="ev-slot-no-date">Geen beschikbare tijdsloten gevonden voor deze datum. Probeer een andere datum.</p>';
+                var origDate = parseDate(aptLive.date);
+                html += '<p class="ev-slot-no-date">Geen beschikbare tijdsloten op <strong>' + formatDateNL(origDate) + '</strong>.</p>';
+
+                // Show alternative dates if available
+                if (alts.length > 0) {
+                    html += renderAlternatives(i, alts);
+                } else {
+                    html += '<p class="ev-slot-no-date" style="margin-top:.5rem;">Er zijn de komende 14 dagen geen beschikbare tijdsloten gevonden. Kies een andere datum in de vorige stap.</p>';
+                }
             } else {
                 var dateObj2 = parseDate(aptLive.date);
                 html += '<p class="ev-slot-date-label">Beschikbaar op <strong>' + formatDateNL(dateObj2) + '</strong></p>';
@@ -957,6 +1000,23 @@
         }
 
         container.innerHTML = html;
+    }
+
+    function renderAlternatives(aptIdx, alternatives) {
+        var html = '';
+        html += '<div class="ev-alt-dates">';
+        html += '<p class="ev-alt-dates-label">Dichtstbijzijnde beschikbare data:</p>';
+        html += '<div class="ev-alt-dates-grid">';
+        for (var a = 0; a < alternatives.length; a++) {
+            var alt = alternatives[a];
+            html += '<button type="button" class="ev-alt-date-btn" data-apt="' + aptIdx + '" data-date="' + alt.date + '">';
+            html += '<span class="ev-alt-date-name">' + alt.date_label + '</span>';
+            html += '<span class="ev-alt-date-count">' + alt.slot_count + ' tijdslot' + (alt.slot_count !== 1 ? 'en' : '') + ' beschikbaar</span>';
+            html += '</button>';
+        }
+        html += '</div>';
+        html += '</div>';
+        return html;
     }
 
     function submitBooking() {
@@ -1378,6 +1438,19 @@
                     };
                     renderTimeslots();
                     renderSummary();
+                    return;
+                }
+
+                // Alternative date button – switch appointment date and re-fetch
+                var altBtn = e.target.closest('.ev-alt-date-btn');
+                if (altBtn) {
+                    var altAptIdx = parseInt(altBtn.getAttribute('data-apt'), 10);
+                    var altDate = altBtn.getAttribute('data-date');
+                    state.appointments[altAptIdx].date = altDate;
+                    // Clear any previous selection for this appointment
+                    delete state.selectedSlots[altAptIdx];
+                    // Re-fetch slots with the new date
+                    fetchAvailableSlots();
                     return;
                 }
 
