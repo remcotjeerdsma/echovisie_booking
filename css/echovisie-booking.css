@@ -930,6 +930,36 @@
     transform: translateY(0);
 }
 
+/* ---------- Customer fields (step 3) ---------- */
+.ev-customer-fields {
+    display: flex;
+    flex-direction: column;
+    gap: .8rem;
+}
+.ev-customer-field {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+}
+.ev-customer-input {
+    width: 100%;
+    padding: .65rem .8rem;
+    border: 2px solid var(--ev-border);
+    border-radius: 10px;
+    font-size: .9rem;
+    font-family: inherit;
+    color: var(--ev-text);
+    background: var(--ev-card);
+    outline: none;
+    transition: border-color .2s;
+}
+.ev-customer-input:focus {
+    border-color: var(--ev-primary);
+}
+.ev-customer-input.has-error {
+    border-color: #D32F2F;
+}
+
 /* ---------- Timeslot selection (step 3) ---------- */
 .ev-slot-group {
     margin-bottom: 1.2rem;

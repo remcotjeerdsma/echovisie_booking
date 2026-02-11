@@ -48,7 +48,12 @@
         selectedSlots: {},     // { aptIdx: { date, time, staff_id, staff_name } }
         slotsLoading: false,
         slotsError: null,
-        bookingInProgress: false
+        bookingInProgress: false,
+
+        // Customer details
+        customerName: '',
+        customerEmail: '',
+        customerPhone: ''
     };
 
     function makeDefaultAppointment() {
@@ -926,7 +931,7 @@
                     } else {
                         html += '<p class="ev-slot-date-label">Beschikbaar op <strong>' + formatDateNL(dateObj) + '</strong></p>';
 
-                        var demoSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '13:00', '13:30', '14:00', '17:30', '18:00', '19:00'];
+                        var demoSlots = ['09:00', '09:10', '09:20', '09:30', '10:00', '10:10', '10:30', '11:00', '13:00', '13:10', '13:30', '14:00', '14:10', '17:00', '17:10', '17:30', '18:00', '19:00'];
                         var demoStaff = ['Ida', 'Christel', 'Rianne'];
                         html += '<div class="ev-slot-grid">';
                         for (var s = 0; s < demoSlots.length; s++) {
@@ -1026,10 +1031,47 @@
         return html;
     }
 
+    function validateCustomerFields() {
+        var errors = [];
+        var nameEl  = document.getElementById('ev-customer-name');
+        var emailEl = document.getElementById('ev-customer-email');
+        var phoneEl = document.getElementById('ev-customer-phone');
+
+        // Read current values from inputs
+        if (nameEl) state.customerName = nameEl.value.trim();
+        if (emailEl) state.customerEmail = emailEl.value.trim();
+        if (phoneEl) state.customerPhone = phoneEl.value.trim();
+
+        if (!state.customerName) errors.push('Vul je naam in.');
+        if (!state.customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.customerEmail)) {
+            errors.push('Vul een geldig e-mailadres in.');
+        }
+        if (!state.customerPhone) errors.push('Vul je telefoonnummer in.');
+
+        // Toggle error class on fields
+        if (nameEl) nameEl.classList.toggle('has-error', !state.customerName);
+        if (emailEl) emailEl.classList.toggle('has-error', !state.customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.customerEmail));
+        if (phoneEl) phoneEl.classList.toggle('has-error', !state.customerPhone);
+
+        var errorEl = document.getElementById('ev-customer-error');
+        if (errors.length > 0 && errorEl) {
+            errorEl.textContent = errors.join(' ');
+            errorEl.style.display = '';
+        } else if (errorEl) {
+            errorEl.style.display = 'none';
+        }
+
+        return errors.length === 0;
+    }
+
     function submitBooking() {
         if (!isWordPress()) {
             // Demo fallback – show inline confirmation
             renderConfirmation(null);
+            return;
+        }
+
+        if (!validateCustomerFields()) {
             return;
         }
 
@@ -1057,7 +1099,10 @@
             packageQty: state.packageQty,
             appointments: aptData,
             pregType: state.pregType,
-            pregDate: state.pregDate
+            pregDate: state.pregDate,
+            customerName: state.customerName,
+            customerEmail: state.customerEmail,
+            customerPhone: state.customerPhone
         }));
 
         fetch(echovisieBooking.ajaxUrl, { method: 'POST', body: formData })
@@ -1092,8 +1137,14 @@
         html += '</div>';
 
         html += '<div class="ev-section" style="text-align:center;padding:1.5rem;">';
+        if (state.customerName) {
+            html += '<p style="font-size:1rem;font-weight:600;margin-bottom:.3rem;">Bedankt, ' + state.customerName + '!</p>';
+        }
         html += '<p style="font-size:.92rem;color:var(--ev-text-muted);margin-bottom:1.2rem;">';
         html += 'Hieronder vind je een overzicht van je afspra' + (state.packageQty > 1 ? 'ken' : 'ak') + '. ';
+        if (state.customerEmail) {
+            html += 'Een bevestiging is verstuurd naar <strong>' + state.customerEmail + '</strong>. ';
+        }
         html += 'De betaling vindt plaats in de praktijk (pin/contant).';
         html += '</p>';
 
@@ -1488,6 +1539,20 @@
                     fetchAvailableSlots();
                 }
             });
+        }
+
+        // Customer fields
+        var custName = document.getElementById('ev-customer-name');
+        var custEmail = document.getElementById('ev-customer-email');
+        var custPhone = document.getElementById('ev-customer-phone');
+        if (custName) {
+            custName.addEventListener('input', function () { state.customerName = this.value.trim(); });
+        }
+        if (custEmail) {
+            custEmail.addEventListener('input', function () { state.customerEmail = this.value.trim(); });
+        }
+        if (custPhone) {
+            custPhone.addEventListener('input', function () { state.customerPhone = this.value.trim(); });
         }
 
         // Book button

@@ -137,6 +137,36 @@ function echovisie_ajax_book() {
         wp_send_json_error( array( 'message' => 'Bookly is niet beschikbaar. Neem contact op met de beheerder.' ) );
     }
 
+    // ── Customer details (required) ──
+    $customer_name  = sanitize_text_field( $data['customerName'] ?? '' );
+    $customer_email = sanitize_email( $data['customerEmail'] ?? '' );
+    $customer_phone = sanitize_text_field( $data['customerPhone'] ?? '' );
+
+    if ( ! $customer_name || ! $customer_email || ! $customer_phone ) {
+        wp_send_json_error( array( 'message' => 'Vul je naam, e-mailadres en telefoonnummer in.' ) );
+    }
+
+    // ── Find or create Bookly Customer ──
+    $customer = null;
+    if ( class_exists( '\Bookly\Lib\Entities\Customer' ) ) {
+        // Look up by email first
+        $customer = \Bookly\Lib\Entities\Customer::query()
+            ->where( 'email', $customer_email )
+            ->findOne();
+
+        if ( ! $customer ) {
+            $customer = new \Bookly\Lib\Entities\Customer();
+        }
+
+        $name_parts = explode( ' ', $customer_name, 2 );
+        $customer->setFirstName( $name_parts[0] );
+        $customer->setLastName( isset( $name_parts[1] ) ? $name_parts[1] : '' );
+        $customer->setFullName( $customer_name );
+        $customer->setPhone( $customer_phone );
+        $customer->setEmail( $customer_email );
+        $customer->save();
+    }
+
     $package_qty = absint( $data['packageQty'] ?? 1 );
     if ( $package_qty < 1 || $package_qty > 3 ) {
         $package_qty = 1;
@@ -177,13 +207,20 @@ function echovisie_ajax_book() {
         // Build internal note with booking details
         $note_parts = array( 'EchoVisie boeking — ' . $duration . ' min' );
 
-        $raw_addons = $apt['addons'] ?? array();
-        $addon_names = array();
+        // Collect extras for Bookly format
+        $extras_bookly = array();
+        $raw_addons    = $apt['addons'] ?? array();
+        $addon_names   = array();
         foreach ( $raw_addons as $addon_id => $addon_data ) {
             $addon_id = sanitize_key( $addon_id );
-            $qty = absint( $addon_data['qty'] ?? 0 );
+            $qty      = absint( $addon_data['qty'] ?? 0 );
             if ( $qty > 0 ) {
                 $addon_names[] = $addon_id . ' x' . $qty;
+                // Map to Bookly extra ID if configured
+                $extra_id = $config['extras'][ $addon_id ] ?? 0;
+                if ( $extra_id > 0 ) {
+                    $extras_bookly[] = array( 'id' => $extra_id, 'quantity' => $qty );
+                }
             }
         }
         if ( ! empty( $addon_names ) ) {
@@ -208,6 +245,33 @@ function echovisie_ajax_book() {
             $appointment->setEndDate( $end_date );
             $appointment->setInternalNote( implode( "\n", $note_parts ) );
             $appointment->save();
+
+            // Link customer to appointment via CustomerAppointment
+            if ( $customer && class_exists( '\Bookly\Lib\Entities\CustomerAppointment' ) ) {
+                $ca = new \Bookly\Lib\Entities\CustomerAppointment();
+                $ca->setCustomerId( $customer->getId() );
+                $ca->setAppointmentId( $appointment->getId() );
+                $ca->setNumberOfPersons( 1 );
+                $ca->setStatus( 'approved' );
+
+                if ( ! empty( $extras_bookly ) ) {
+                    $ca->setExtras( json_encode( $extras_bookly ) );
+                }
+
+                // Attach custom fields (pregnancy info)
+                $custom_fields_data = array();
+                if ( $preg_date && $config['custom_fields']['due_date'] > 0 ) {
+                    $custom_fields_data[] = array(
+                        'id'    => $config['custom_fields']['due_date'],
+                        'value' => $preg_date,
+                    );
+                }
+                if ( ! empty( $custom_fields_data ) ) {
+                    $ca->setCustomFields( json_encode( $custom_fields_data ) );
+                }
+
+                $ca->save();
+            }
 
             // Resolve staff name for confirmation
             $staff_name = '';
@@ -298,12 +362,11 @@ function echovisie_ajax_get_slots() {
 /**
  * Query Bookly's availability for a specific service on a specific date.
  *
- * Uses Bookly's internal Schedule/Availability classes to find open slots.
- * Returns array of [ { time, staff_id, staff_name } ].
+ * Checks each staff member's schedule (StaffScheduleItem), holidays,
+ * and existing appointments to determine truly available time slots.
+ * Returns slots at 10-minute intervals within each staff member's working hours.
  *
- * NOTE: This uses Bookly's internal APIs which may change between versions.
- * If this stops working after a Bookly update, check the Bookly changelog
- * and update the class/method references accordingly.
+ * Returns array of [ { time, staff_id, staff_name } ].
  */
 function echovisie_query_bookly_slots( $service_id, $date, $duration_min ) {
     $slots = array();
@@ -337,7 +400,59 @@ function echovisie_query_bookly_slots( $service_id, $date, $duration_min ) {
             $staff_map[ $staff->getId() ] = $staff->getFullName();
         }
 
-        // Query existing appointments on this date to determine availability
+        // ── Check staff working hours from Bookly schedule ──
+        $schedule_map = array(); // staff_id => { start, end } (timestamps)
+
+        if ( class_exists( '\Bookly\Lib\Entities\StaffScheduleItem' ) ) {
+            $day_index = (int) date( 'N', strtotime( $date ) ); // 1=Mon, 7=Sun
+
+            $schedules = \Bookly\Lib\Entities\StaffScheduleItem::query()
+                ->whereIn( 'staff_id', $staff_ids )
+                ->where( 'day_index', $day_index )
+                ->find();
+
+            foreach ( $schedules as $sched ) {
+                $start_time = $sched->getStartTime();
+                $end_time   = $sched->getEndTime();
+                // start_time is NULL when the staff doesn't work that day
+                if ( $start_time && $end_time ) {
+                    $schedule_map[ $sched->getStaffId() ] = array(
+                        'start' => strtotime( $date . ' ' . $start_time ),
+                        'end'   => strtotime( $date . ' ' . $end_time ),
+                    );
+                }
+            }
+        } else {
+            // Fallback if schedule entity is unavailable: assume 09:00-20:00
+            foreach ( $staff_ids as $sid ) {
+                $schedule_map[ $sid ] = array(
+                    'start' => strtotime( $date . ' 09:00:00' ),
+                    'end'   => strtotime( $date . ' 20:00:00' ),
+                );
+            }
+        }
+
+        // ── Check holidays (per-staff and global) ──
+        $holiday_staff = array();
+
+        if ( class_exists( '\Bookly\Lib\Entities\Holiday' ) ) {
+            $check_ids = array_merge( array( 0 ), $staff_ids );
+            $holidays  = \Bookly\Lib\Entities\Holiday::query()
+                ->whereIn( 'staff_id', $check_ids )
+                ->where( 'date', $date )
+                ->find();
+
+            foreach ( $holidays as $h ) {
+                $hid = $h->getStaffId();
+                if ( (int) $hid === 0 ) {
+                    // Global holiday — nobody works
+                    return array();
+                }
+                $holiday_staff[] = $hid;
+            }
+        }
+
+        // ── Query existing appointments on this date ──
         $date_start = $date . ' 00:00:00';
         $date_end   = $date . ' 23:59:59';
 
@@ -360,19 +475,29 @@ function echovisie_query_bookly_slots( $service_id, $date, $duration_min ) {
             );
         }
 
-        // Generate time slots (every 30 min from 09:00 to 20:00)
-        $slot_interval = 30 * 60; // 30 minutes
+        // ── Generate time slots (every 10 min within working hours) ──
+        $slot_interval = 10 * 60; // 10 minutes
         $duration_sec  = $duration_min * 60;
-        $day_start     = strtotime( $date . ' 09:00:00' );
-        $day_end       = strtotime( $date . ' 20:00:00' );
 
-        for ( $time = $day_start; $time + $duration_sec <= $day_end; $time += $slot_interval ) {
-            $slot_end = $time + $duration_sec;
+        foreach ( $staff_ids as $sid ) {
+            // Skip staff on holiday
+            if ( in_array( $sid, $holiday_staff, true ) ) {
+                continue;
+            }
 
-            foreach ( $staff_ids as $sid ) {
-                $is_free = true;
+            // Skip staff with no schedule for this day
+            if ( ! isset( $schedule_map[ $sid ] ) ) {
+                continue;
+            }
+
+            $work_start = $schedule_map[ $sid ]['start'];
+            $work_end   = $schedule_map[ $sid ]['end'];
+
+            for ( $time = $work_start; $time + $duration_sec <= $work_end; $time += $slot_interval ) {
+                $slot_end = $time + $duration_sec;
+                $is_free  = true;
+
                 $staff_bookings = $occupied[ $sid ] ?? array();
-
                 foreach ( $staff_bookings as $booking ) {
                     // Check for overlap
                     if ( $time < $booking['end'] && $slot_end > $booking['start'] ) {
@@ -564,6 +689,27 @@ function echovisie_booking_shortcode() {
                     <h3 class="ev-section-title">Kies een tijdslot</h3>
                     <p class="ev-package-hint">Selecteer een beschikbaar moment bij een van onze echoscopisten</p>
                     <div id="ev-timeslots-container"></div>
+                </div>
+
+                <!-- Customer details -->
+                <div class="ev-section ev-customer-section">
+                    <h3 class="ev-section-title">Jouw gegevens</h3>
+                    <p class="ev-package-hint">Vul je contactgegevens in zodat we je een bevestiging kunnen sturen</p>
+                    <div class="ev-customer-fields">
+                        <div class="ev-customer-field">
+                            <label class="ev-label" for="ev-customer-name">Naam</label>
+                            <input type="text" id="ev-customer-name" class="ev-customer-input" placeholder="Je volledige naam" autocomplete="name">
+                        </div>
+                        <div class="ev-customer-field">
+                            <label class="ev-label" for="ev-customer-email">E-mailadres</label>
+                            <input type="email" id="ev-customer-email" class="ev-customer-input" placeholder="naam@voorbeeld.nl" autocomplete="email">
+                        </div>
+                        <div class="ev-customer-field">
+                            <label class="ev-label" for="ev-customer-phone">Telefoonnummer</label>
+                            <input type="tel" id="ev-customer-phone" class="ev-customer-input" placeholder="06-12345678" autocomplete="tel">
+                        </div>
+                    </div>
+                    <div id="ev-customer-error" class="ev-preg-error" style="display:none;"></div>
                 </div>
 
             </div>
