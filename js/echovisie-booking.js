@@ -121,10 +121,35 @@
     }
 
     /* =========================================================
+       PREGNANCY DATE VALIDATION
+       ========================================================= */
+    function validatePregDate() {
+        if (!state.pregType || !state.pregDate) return null;
+        var d = parseDate(state.pregDate);
+        if (!d) return null;
+        var now = today();
+        if (state.pregType === 'due') {
+            if (d <= now) {
+                return 'Je uitgerekende datum moet in de toekomst liggen.';
+            }
+        } else if (state.pregType === 'lmp') {
+            var nineMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 9, now.getDate());
+            if (d < nineMonthsAgo) {
+                return 'De eerste dag van je laatste menstruatie mag niet langer dan 9 maanden geleden zijn.';
+            }
+            if (d > now) {
+                return 'De eerste dag van je laatste menstruatie kan niet in de toekomst liggen.';
+            }
+        }
+        return null;
+    }
+
+    /* =========================================================
        PREGNANCY CALCULATOR
        ========================================================= */
     function getLmpDate() {
         if (!state.pregType || !state.pregDate) return null;
+        if (validatePregDate()) return null;
         if (state.pregType === 'lmp') return parseDate(state.pregDate);
         var due = parseDate(state.pregDate);
         if (!due) return null;
@@ -486,12 +511,14 @@
             html += '<label class="ev-date-label">' + label + '</label>';
 
             if (sug) {
+                var sugISO = formatDateISO(sug.idealDate);
                 html += '<div class="ev-date-suggestion">';
                 html += '<span class="ev-date-sug-icon">' + sug.milestone.icon + '</span> ';
                 html += '<span class="ev-date-sug-text">';
                 html += sug.milestone.desc;
                 html += ' \u2014 plan rond <strong>' + formatDateNL(sug.idealDate) + '</strong>';
                 html += ' <span class="ev-date-sug-range">(week ' + sug.milestone.weekStart + '\u2013' + sug.milestone.weekEnd + ')</span>';
+                html += '<br><button type="button" class="ev-date-sug-btn" data-idx="' + i + '" data-date="' + sugISO + '">Kies ' + formatDateNL(sug.idealDate) + '</button>';
                 html += '</span>';
                 html += '</div>';
             }
@@ -664,6 +691,21 @@
         if (pregInput) {
             pregInput.addEventListener('change', function () {
                 state.pregDate = this.value;
+                var error = validatePregDate();
+                var errorEl = document.getElementById('ev-preg-date-error');
+                if (error) {
+                    this.classList.add('has-error');
+                    if (!errorEl) {
+                        errorEl = document.createElement('div');
+                        errorEl.id = 'ev-preg-date-error';
+                        errorEl.className = 'ev-preg-error';
+                        this.parentNode.appendChild(errorEl);
+                    }
+                    errorEl.textContent = error;
+                } else {
+                    this.classList.remove('has-error');
+                    if (errorEl) errorEl.remove();
+                }
                 renderAll();
             });
         }
@@ -676,6 +718,14 @@
                     var idx = parseInt(e.target.getAttribute('data-idx'), 10);
                     state.appointmentDates[idx] = e.target.value;
                 }
+            });
+            datesContainer.addEventListener('click', function (e) {
+                var btn = e.target.closest('.ev-date-sug-btn');
+                if (!btn) return;
+                var idx = parseInt(btn.getAttribute('data-idx'), 10);
+                var date = btn.getAttribute('data-date');
+                state.appointmentDates[idx] = date;
+                renderDatePickers();
             });
         }
 

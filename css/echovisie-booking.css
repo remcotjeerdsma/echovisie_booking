@@ -404,6 +404,19 @@
     border-color: var(--ev-primary-dark);
     background: var(--ev-primary-light);
 }
+.ev-preg-error {
+    font-size: .82rem;
+    color: #D32F2F;
+    background: #FFEBEE;
+    border: 1px solid #FFCDD2;
+    border-radius: 8px;
+    padding: .5rem .7rem;
+    margin-top: .4rem;
+    line-height: 1.4;
+}
+.ev-preg-date-input.has-error {
+    border-color: #D32F2F;
+}
 .ev-preg-date-wrapper {
     margin-bottom: .8rem;
 }
@@ -521,6 +534,23 @@
 .ev-date-sug-range {
     color: var(--ev-primary-dark);
     font-size: .75rem;
+}
+.ev-date-sug-btn {
+    display: inline-block;
+    margin-top: .35rem;
+    padding: .3rem .7rem;
+    border: none;
+    border-radius: 6px;
+    background: var(--ev-primary);
+    color: #fff;
+    font-size: .78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s;
+    font-family: inherit;
+}
+.ev-date-sug-btn:hover {
+    background: var(--ev-primary-dark);
 }
 .ev-date-input {
     width: 100%;
