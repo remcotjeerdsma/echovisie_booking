@@ -21,9 +21,15 @@ function echovisie_enqueue_assets() {
     global $post;
     if ( is_a( $post, 'WP_Post' ) && has_shortcode( $post->post_content, 'echovisie_booking' ) ) {
         wp_enqueue_style(
+            'echovisie-google-fonts',
+            'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap',
+            array(),
+            null
+        );
+        wp_enqueue_style(
             'echovisie-booking-css',
             ECHOVISIE_PLUGIN_URL . 'css/echovisie-booking.css',
-            array(),
+            array( 'echovisie-google-fonts' ),
             '1.0.0'
         );
         wp_enqueue_script(

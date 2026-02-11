@@ -4,22 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EchoVisie Booking – Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body {
             margin: 0;
             padding: 2rem 1rem;
-            background: #f5eef3;
+            background: #F5F5F5;
             min-height: 100vh;
         }
 
         /* === EchoVisie Booking Widget – Stylesheet === */
         .ev-booking *, .ev-booking *::before, .ev-booking *::after { box-sizing: border-box; margin: 0; padding: 0; }
         .ev-booking {
-            --ev-primary: #c084b0; --ev-primary-dark: #9b5d87; --ev-primary-light: #f3e5f5;
-            --ev-accent: #f8bbd0; --ev-bg: #fefafc; --ev-card: #ffffff;
-            --ev-text: #3e2a47; --ev-text-muted: #8a7190; --ev-border: #ecdfe8;
-            --ev-success: #66bb6a; --ev-radius: 14px; --ev-shadow: 0 4px 24px rgba(155,93,135,.10);
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            --ev-primary: #F7941D; --ev-primary-dark: #D97B06; --ev-primary-light: #FFF3E0;
+            --ev-accent: #FFB74D; --ev-bg: #ffffff; --ev-card: #ffffff;
+            --ev-text: #2D2D2D; --ev-text-muted: #7A7A7A; --ev-border: #E5E5E5;
+            --ev-success: #4CAF50; --ev-radius: 10px; --ev-shadow: 0 4px 24px rgba(0,0,0,.08);
+            font-family: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif;
             color: var(--ev-text); background: var(--ev-bg); border-radius: var(--ev-radius);
             max-width: 680px; margin: 0 auto; padding: 0; overflow: hidden; box-shadow: var(--ev-shadow);
         }
@@ -96,17 +99,17 @@
         .ev-milestone-card .ev-ms-status { font-size: .78rem; font-weight: 600; margin-top: .2rem; }
         .ev-ms-past { opacity: .5; border-style: dashed; }
         .ev-ms-past .ev-ms-status { color: var(--ev-text-muted); }
-        .ev-ms-current { border-color: var(--ev-success); background: #f0faf0; }
-        .ev-ms-current .ev-ms-status { color: #2e7d32; }
+        .ev-ms-current { border-color: var(--ev-primary); background: var(--ev-primary-light); }
+        .ev-ms-current .ev-ms-status { color: var(--ev-primary-dark); }
         .ev-ms-future .ev-ms-status { color: var(--ev-primary-dark); }
 
         /* Date pickers */
         .ev-dates-container { display: flex; flex-direction: column; gap: 1rem; }
         .ev-date-group { display: flex; flex-direction: column; gap: .4rem; }
         .ev-date-label { font-weight: 600; font-size: .92rem; }
-        .ev-date-suggestion { font-size: .82rem; color: var(--ev-text-muted); background: #faf5ed; border: 1px solid #ece0cc; border-radius: 8px; padding: .5rem .7rem; line-height: 1.45; display: flex; align-items: flex-start; gap: .4rem; }
+        .ev-date-suggestion { font-size: .82rem; color: var(--ev-text-muted); background: var(--ev-primary-light); border: 1px solid #F5D9B0; border-radius: 8px; padding: .5rem .7rem; line-height: 1.45; display: flex; align-items: flex-start; gap: .4rem; }
         .ev-date-sug-icon { font-size: 1rem; flex-shrink: 0; }
-        .ev-date-sug-range { color: #a88a5f; font-size: .75rem; }
+        .ev-date-sug-range { color: var(--ev-primary-dark); font-size: .75rem; }
         .ev-date-input { width: 100%; padding: .65rem .8rem; border: 2px solid var(--ev-border); border-radius: 10px; font-size: .9rem; font-family: inherit; color: var(--ev-text); background: var(--ev-card); outline: none; transition: border-color .2s; }
         .ev-date-input:focus { border-color: var(--ev-primary); }
 
@@ -118,7 +121,7 @@
         .ev-total-label { font-size: 1rem; font-weight: 600; }
         .ev-total-amount { font-size: 1.5rem; font-weight: 800; }
         .ev-book-btn { display: block; width: 100%; padding: 1rem; border: none; border-radius: 10px; background: var(--ev-primary-dark); color: #fff; font-size: 1.05rem; font-weight: 700; cursor: pointer; transition: background .2s, transform .15s; font-family: inherit; letter-spacing: .02em; }
-        .ev-book-btn:hover { background: #7d4470; transform: translateY(-1px); }
+        .ev-book-btn:hover { background: #C06A00; transform: translateY(-1px); }
         .ev-book-btn:active { transform: translateY(0); }
 
         @media (max-width: 520px) {

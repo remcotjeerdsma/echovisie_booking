@@ -12,20 +12,20 @@
 }
 
 .ev-booking {
-    --ev-primary: #c084b0;
-    --ev-primary-dark: #9b5d87;
-    --ev-primary-light: #f3e5f5;
-    --ev-accent: #f8bbd0;
-    --ev-bg: #fefafc;
+    --ev-primary: #F7941D;
+    --ev-primary-dark: #D97B06;
+    --ev-primary-light: #FFF3E0;
+    --ev-accent: #FFB74D;
+    --ev-bg: #ffffff;
     --ev-card: #ffffff;
-    --ev-text: #3e2a47;
-    --ev-text-muted: #8a7190;
-    --ev-border: #ecdfe8;
-    --ev-success: #66bb6a;
-    --ev-radius: 14px;
-    --ev-shadow: 0 4px 24px rgba(155, 93, 135, .10);
+    --ev-text: #2D2D2D;
+    --ev-text-muted: #7A7A7A;
+    --ev-border: #E5E5E5;
+    --ev-success: #4CAF50;
+    --ev-radius: 10px;
+    --ev-shadow: 0 4px 24px rgba(0, 0, 0, .08);
 
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-family: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif;
     color: var(--ev-text);
     background: var(--ev-bg);
     border-radius: var(--ev-radius);
@@ -221,12 +221,12 @@
     width: fit-content;
 }
 .ev-inc-badge.free {
-    background: #e8f5e9;
-    color: #2e7d32;
+    background: #E8F5E9;
+    color: #2E7D32;
 }
 .ev-inc-badge.unlock {
-    background: #fff3e0;
-    color: #e65100;
+    background: #FFF3E0;
+    color: #E65100;
 }
 
 /* ---------- Add-ons ---------- */
@@ -477,11 +477,11 @@
     color: var(--ev-text-muted);
 }
 .ev-ms-current {
-    border-color: var(--ev-success);
-    background: #f0faf0;
+    border-color: var(--ev-primary);
+    background: var(--ev-primary-light);
 }
 .ev-ms-current .ev-ms-status {
-    color: #2e7d32;
+    color: var(--ev-primary-dark);
 }
 .ev-ms-future .ev-ms-status {
     color: var(--ev-primary-dark);
@@ -505,8 +505,8 @@
 .ev-date-suggestion {
     font-size: .82rem;
     color: var(--ev-text-muted);
-    background: #faf5ed;
-    border: 1px solid #ece0cc;
+    background: var(--ev-primary-light);
+    border: 1px solid #F5D9B0;
     border-radius: 8px;
     padding: .5rem .7rem;
     line-height: 1.45;
@@ -519,7 +519,7 @@
     flex-shrink: 0;
 }
 .ev-date-sug-range {
-    color: #a88a5f;
+    color: var(--ev-primary-dark);
     font-size: .75rem;
 }
 .ev-date-input {
@@ -588,7 +588,7 @@
     letter-spacing: .02em;
 }
 .ev-book-btn:hover {
-    background: #7d4470;
+    background: #C06A00;
     transform: translateY(-1px);
 }
 .ev-book-btn:active {
