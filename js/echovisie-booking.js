@@ -1,5 +1,6 @@
 /**
  * EchoVisie Booking Widget – Interactive logic & pricing engine
+ * Step-based wizard with per-appointment configuration
  */
 (function () {
     'use strict';
@@ -24,18 +25,57 @@
           icon: '\uD83D\uDCCF', desc: 'Groei en ontwikkeling bekijken' }
     ];
 
+    var STEP_LABELS = ['Samenstellen', 'Afspraken', 'Planning'];
+
     /* =========================================================
        STATE
        ========================================================= */
     var state = {
-        duration: 10,
-        timeSlot: 'working',
+        currentStep: 0,
         packageQty: 1,
-        addons: {},
         pregType: null,          // 'due' | 'lmp' | null
         pregDate: '',            // YYYY-MM-DD
-        appointmentDates: ['']   // one entry per packageQty
+
+        // Per-appointment configuration
+        appointments: [
+            makeDefaultAppointment()
+        ]
     };
+
+    function makeDefaultAppointment() {
+        return {
+            duration: 10,
+            timeSlot: 'working',
+            addons: {},
+            date: '',
+            customized: false    // false = inherits from appointment 0
+        };
+    }
+
+    function getEffectiveConfig(idx) {
+        if (idx === 0 || state.appointments[idx].customized) {
+            return state.appointments[idx];
+        }
+        // Inherit from appointment 0, but keep own date
+        var base = state.appointments[0];
+        return {
+            duration: base.duration,
+            timeSlot: base.timeSlot,
+            addons: base.addons,
+            date: state.appointments[idx].date,
+            customized: false
+        };
+    }
+
+    function syncAppointmentCount() {
+        var qty = state.packageQty;
+        while (state.appointments.length < qty) {
+            state.appointments.push(makeDefaultAppointment());
+        }
+        if (state.appointments.length > qty) {
+            state.appointments.length = qty;
+        }
+    }
 
     /* =========================================================
        PRICING RULES
@@ -217,7 +257,6 @@
 
     function buildIncludedCards(duration) {
         return [
-            // 10 min
             {
                 icon: '\uD83D\uDCF7',
                 name: 'Digitale 2D-beelden',
@@ -225,7 +264,6 @@
                 free: true,
                 unlockAt: 10
             },
-            // 20 min
             {
                 icon: '\uD83D\uDDBC\uFE0F',
                 name: 'Kleine foto\'s (print)',
@@ -260,7 +298,6 @@
                 free: included3D(duration) > 0,
                 unlockAt: 20
             },
-            // 30 min
             {
                 icon: '\uD83C\uDFAC',
                 name: '4D-video\'s',
@@ -270,7 +307,6 @@
                 free: included4D(duration) > 0,
                 unlockAt: 30
             },
-            // 40 min
             {
                 icon: '\uD83C\uDFA5',
                 name: 'Volledige opname',
@@ -356,14 +392,83 @@
         return '\u20AC' + amount.toFixed(2).replace('.', ',');
     }
 
+    /* =========================================================
+       STEP BAR
+       ========================================================= */
+    function renderStepBar() {
+        var container = document.getElementById('ev-step-bar');
+        if (!container) return;
+
+        var html = '';
+        for (var i = 0; i < STEP_LABELS.length; i++) {
+            var cls = 'ev-step-dot';
+            if (i < state.currentStep) cls += ' completed';
+            if (i === state.currentStep) cls += ' active';
+            html += '<div class="ev-step-item">';
+            html += '<div class="' + cls + '">' + (i + 1) + '</div>';
+            html += '<span class="ev-step-label">' + STEP_LABELS[i] + '</span>';
+            html += '</div>';
+            if (i < STEP_LABELS.length - 1) {
+                var lineCls = 'ev-step-line';
+                if (i < state.currentStep) lineCls += ' completed';
+                html += '<div class="' + lineCls + '"></div>';
+            }
+        }
+        container.innerHTML = html;
+    }
+
+    function renderStepNav() {
+        var container = document.getElementById('ev-step-nav');
+        if (!container) return;
+
+        var html = '';
+        if (state.currentStep > 0) {
+            html += '<button type="button" class="ev-step-prev-btn" id="ev-prev-btn">&larr; Vorige</button>';
+        } else {
+            html += '<span></span>';
+        }
+        if (state.currentStep < STEP_LABELS.length - 1) {
+            html += '<button type="button" class="ev-step-next-btn" id="ev-next-btn">Volgende &rarr;</button>';
+        } else {
+            html += '<span></span>';
+        }
+        container.innerHTML = html;
+    }
+
+    function setStep(step) {
+        if (step < 0 || step >= STEP_LABELS.length) return;
+        state.currentStep = step;
+
+        var panels = document.querySelectorAll('.ev-step-panel');
+        for (var i = 0; i < panels.length; i++) {
+            panels[i].style.display = parseInt(panels[i].getAttribute('data-step'), 10) === step ? '' : 'none';
+        }
+
+        renderStepBar();
+        renderStepNav();
+
+        // Re-render step content when switching
+        if (step === 1) {
+            renderAppointmentConfigs();
+        }
+        if (step === 2) {
+            renderPregnancy();
+            renderDatePickers();
+        }
+    }
+
+    /* =========================================================
+       STEP 0 – MAIN CONFIGURATOR (appointment 0)
+       ========================================================= */
     function renderIncludedGrid() {
         var container = document.getElementById('ev-included-grid');
         if (!container) return;
-        var cards = buildIncludedCards(state.duration);
+        var duration = state.appointments[0].duration;
+        var cards = buildIncludedCards(duration);
         var html = '';
         for (var i = 0; i < cards.length; i++) {
             var c = cards[i];
-            var locked = state.duration < c.unlockAt;
+            var locked = duration < c.unlockAt;
             html += '<div class="ev-included-card' + (locked ? ' locked' : '') + '">';
             html += '<span class="ev-inc-icon">' + c.icon + '</span>';
             html += '<span class="ev-inc-name">' + c.name + '</span>';
@@ -381,37 +486,38 @@
     function renderAddons() {
         var container = document.getElementById('ev-addons-list');
         if (!container) return;
-        var addons = buildAddons(state.duration);
+        var apt = state.appointments[0];
+        var addons = buildAddons(apt.duration);
         var html = '';
 
         for (var i = 0; i < addons.length; i++) {
             var a = addons[i];
-            var addonState = state.addons[a.id] || { qty: 0 };
+            var addonState = apt.addons[a.id] || { qty: 0 };
 
-            if (a.autoSelected && !state.addons[a.id]) {
-                state.addons[a.id] = { qty: 1 };
-                addonState = state.addons[a.id];
+            if (a.autoSelected && !apt.addons[a.id]) {
+                apt.addons[a.id] = { qty: 1 };
+                addonState = apt.addons[a.id];
             }
 
             var selected = addonState.qty > 0;
             var disabled = !a.enabled;
 
             if (a.type === 'toggle') {
-                html += '<div class="ev-addon-row' + (selected ? ' selected' : '') + (disabled ? ' disabled' : '') + '" data-addon-id="' + a.id + '" data-type="toggle">';
+                html += '<div class="ev-addon-row' + (selected ? ' selected' : '') + (disabled ? ' disabled' : '') + '" data-addon-id="' + a.id + '" data-type="toggle" data-apt="0">';
                 html += '<span class="ev-addon-check">' + (selected ? '&#10003;' : '') + '</span>';
                 html += '<div class="ev-addon-info"><span class="ev-addon-name">' + a.name + '</span>';
                 html += '<span class="ev-addon-desc">' + a.desc + '</span></div>';
                 html += '<span class="ev-addon-price' + (a.unitPrice === 0 ? ' is-free' : '') + '">' + (a.unitPrice === 0 ? 'Gratis' : euro(a.unitPrice)) + '</span>';
                 html += '</div>';
             } else {
-                html += '<div class="ev-addon-row' + (selected ? ' selected' : '') + (disabled ? ' disabled' : '') + '" data-addon-id="' + a.id + '" data-type="qty" data-max="' + a.maxQty + '">';
+                html += '<div class="ev-addon-row' + (selected ? ' selected' : '') + (disabled ? ' disabled' : '') + '" data-addon-id="' + a.id + '" data-type="qty" data-max="' + a.maxQty + '" data-apt="0">';
                 html += '<span class="ev-addon-check">' + (selected ? '&#10003;' : '') + '</span>';
                 html += '<div class="ev-addon-info"><span class="ev-addon-name">' + a.name + '</span>';
                 html += '<span class="ev-addon-desc">' + a.desc + '</span></div>';
                 html += '<div class="ev-qty-stepper">';
-                html += '<button type="button" class="ev-qty-minus" data-addon-id="' + a.id + '">&minus;</button>';
+                html += '<button type="button" class="ev-qty-minus" data-addon-id="' + a.id + '" data-apt="0">&minus;</button>';
                 html += '<span class="ev-qty-val">' + addonState.qty + '</span>';
-                html += '<button type="button" class="ev-qty-plus" data-addon-id="' + a.id + '">&plus;</button>';
+                html += '<button type="button" class="ev-qty-plus" data-addon-id="' + a.id + '" data-apt="0">&plus;</button>';
                 html += '</div>';
                 html += '<span class="ev-addon-price">' + euro(a.unitPrice * addonState.qty) + '</span>';
                 html += '</div>';
@@ -421,7 +527,162 @@
     }
 
     /* =========================================================
-       PREGNANCY SECTION RENDER
+       STEP 1 – APPOINTMENT CONFIGS (per-appointment)
+       ========================================================= */
+    function renderAppointmentConfigs() {
+        var container = document.getElementById('ev-apt-configs');
+        if (!container) return;
+
+        syncAppointmentCount();
+        var html = '';
+
+        for (var i = 0; i < state.packageQty; i++) {
+            var apt = state.appointments[i];
+            var cfg = getEffectiveConfig(i);
+
+            html += '<div class="ev-apt-card" data-apt="' + i + '">';
+            html += '<div class="ev-apt-card-header">';
+            html += '<span class="ev-apt-card-number">' + (i + 1) + '</span>';
+            html += '<span class="ev-apt-card-title">Afspraak ' + (i + 1) + '</span>';
+
+            // Show summary of config
+            html += '<span class="ev-apt-card-summary">' + cfg.duration + ' min &middot; ';
+            html += (cfg.timeSlot === 'working' ? 'Overdag' : 'Avond/Weekend');
+            html += ' &middot; ' + euro(sessionPriceForApt(i)) + '</span>';
+            html += '</div>';
+
+            if (i > 0) {
+                // Toggle: same as apt 1 OR customize
+                html += '<div class="ev-apt-toggle-bar">';
+                html += '<button type="button" class="ev-apt-toggle-btn' + (!apt.customized ? ' active' : '') + '" data-apt="' + i + '" data-action="inherit">Zelfde als afspraak 1</button>';
+                html += '<button type="button" class="ev-apt-toggle-btn' + (apt.customized ? ' active' : '') + '" data-apt="' + i + '" data-action="customize">Aanpassen</button>';
+                html += '</div>';
+            }
+
+            // Show mini-configurator if appointment 0 or customized
+            if (i === 0 || apt.customized) {
+                html += renderMiniConfigurator(i, cfg);
+            }
+
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+
+        // Bind mini-configurator sliders
+        for (var j = 0; j < state.packageQty; j++) {
+            if (j === 0 || state.appointments[j].customized) {
+                bindMiniSlider(j);
+            }
+        }
+    }
+
+    function renderMiniConfigurator(aptIdx, cfg) {
+        var html = '<div class="ev-apt-mini-config" data-apt="' + aptIdx + '">';
+
+        // Duration slider
+        html += '<div class="ev-apt-mini-row">';
+        html += '<label class="ev-label">Duur</label>';
+        html += '<div class="ev-slider-wrap">';
+        html += '<input type="range" class="ev-mini-slider" data-apt="' + aptIdx + '" min="10" max="60" step="10" value="' + cfg.duration + '">';
+        html += '<div class="ev-slider-labels" aria-hidden="true">';
+        html += '<span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span>';
+        html += '</div>';
+        html += '</div>';
+        html += '<div class="ev-duration-display"><span class="ev-mini-duration-val" data-apt="' + aptIdx + '">' + cfg.duration + '</span> minuten</div>';
+        html += '</div>';
+
+        // Time toggle
+        html += '<div class="ev-apt-mini-row">';
+        html += '<label class="ev-label">Tijdstip</label>';
+        html += '<div class="ev-toggle-group">';
+        html += '<button type="button" class="ev-toggle ev-mini-time' + (cfg.timeSlot === 'working' ? ' active' : '') + '" data-time="working" data-apt="' + aptIdx + '">';
+        html += '<span class="ev-toggle-icon">&#9728;&#65039;</span> Overdag';
+        html += '<span class="ev-toggle-discount">&euro;10 korting!</span></button>';
+        html += '<button type="button" class="ev-toggle ev-mini-time' + (cfg.timeSlot === 'evening' ? ' active' : '') + '" data-time="evening" data-apt="' + aptIdx + '">';
+        html += '<span class="ev-toggle-icon">&#9790;</span> Avond / Weekend';
+        html += '<span class="ev-toggle-price">standaardtarief</span></button>';
+        html += '</div>';
+        html += '</div>';
+
+        // Addons
+        var addons = buildAddons(cfg.duration);
+        html += '<div class="ev-apt-mini-row">';
+        html += '<label class="ev-label">Extra opties</label>';
+        html += '<div class="ev-addons-list ev-mini-addons" data-apt="' + aptIdx + '">';
+        for (var i = 0; i < addons.length; i++) {
+            var a = addons[i];
+            var addonState = cfg.addons[a.id] || { qty: 0 };
+            if (a.autoSelected && !cfg.addons[a.id]) {
+                cfg.addons[a.id] = { qty: 1 };
+                // If this is a real appointment (idx 0 or customized), also write to state
+                if (aptIdx === 0 || state.appointments[aptIdx].customized) {
+                    state.appointments[aptIdx].addons[a.id] = { qty: 1 };
+                }
+                addonState = cfg.addons[a.id];
+            }
+            var selected = addonState.qty > 0;
+            var disabled = !a.enabled;
+
+            if (a.type === 'toggle') {
+                html += '<div class="ev-addon-row' + (selected ? ' selected' : '') + (disabled ? ' disabled' : '') + '" data-addon-id="' + a.id + '" data-type="toggle" data-apt="' + aptIdx + '">';
+                html += '<span class="ev-addon-check">' + (selected ? '&#10003;' : '') + '</span>';
+                html += '<div class="ev-addon-info"><span class="ev-addon-name">' + a.name + '</span>';
+                html += '<span class="ev-addon-desc">' + a.desc + '</span></div>';
+                html += '<span class="ev-addon-price' + (a.unitPrice === 0 ? ' is-free' : '') + '">' + (a.unitPrice === 0 ? 'Gratis' : euro(a.unitPrice)) + '</span>';
+                html += '</div>';
+            } else {
+                html += '<div class="ev-addon-row' + (selected ? ' selected' : '') + (disabled ? ' disabled' : '') + '" data-addon-id="' + a.id + '" data-type="qty" data-max="' + a.maxQty + '" data-apt="' + aptIdx + '">';
+                html += '<span class="ev-addon-check">' + (selected ? '&#10003;' : '') + '</span>';
+                html += '<div class="ev-addon-info"><span class="ev-addon-name">' + a.name + '</span>';
+                html += '<span class="ev-addon-desc">' + a.desc + '</span></div>';
+                html += '<div class="ev-qty-stepper">';
+                html += '<button type="button" class="ev-qty-minus" data-addon-id="' + a.id + '" data-apt="' + aptIdx + '">&minus;</button>';
+                html += '<span class="ev-qty-val">' + addonState.qty + '</span>';
+                html += '<button type="button" class="ev-qty-plus" data-addon-id="' + a.id + '" data-apt="' + aptIdx + '">&plus;</button>';
+                html += '</div>';
+                html += '<span class="ev-addon-price">' + euro(a.unitPrice * addonState.qty) + '</span>';
+                html += '</div>';
+            }
+        }
+        html += '</div>';
+        html += '</div>';
+
+        html += '</div>';
+        return html;
+    }
+
+    function bindMiniSlider(aptIdx) {
+        var slider = document.querySelector('.ev-mini-slider[data-apt="' + aptIdx + '"]');
+        if (!slider) return;
+        slider.addEventListener('input', function () {
+            var val = parseInt(this.value, 10);
+            state.appointments[aptIdx].duration = val;
+            var label = document.querySelector('.ev-mini-duration-val[data-apt="' + aptIdx + '"]');
+            if (label) label.textContent = val;
+            resetAutoSelectionsForApt(aptIdx);
+            renderAppointmentConfigs();
+            renderSummary();
+        });
+    }
+
+    function sessionPriceForApt(aptIdx) {
+        var cfg = getEffectiveConfig(aptIdx);
+        var base = sessionPrice(cfg.duration, cfg.timeSlot);
+        var addonsTotal = 0;
+        var addons = buildAddons(cfg.duration);
+        for (var i = 0; i < addons.length; i++) {
+            var a = addons[i];
+            var addonState = cfg.addons[a.id] || { qty: 0 };
+            if (addonState.qty > 0 && a.unitPrice > 0) {
+                addonsTotal += a.unitPrice * addonState.qty;
+            }
+        }
+        return base + addonsTotal;
+    }
+
+    /* =========================================================
+       STEP 2 – PREGNANCY & DATES
        ========================================================= */
     function renderPregnancy() {
         var infoEl = document.getElementById('ev-preg-info');
@@ -437,7 +698,6 @@
         var weeksLeft = PREGNANCY_WEEKS - currentWeek;
         var html = '';
 
-        // Current week display
         html += '<div class="ev-preg-week-display">';
         html += 'Je bent nu <strong>' + currentWeek + ' weken</strong> zwanger';
         if (weeksLeft > 0) {
@@ -447,7 +707,6 @@
         }
         html += '</div>';
 
-        // Milestone timeline
         html += '<div class="ev-milestone-timeline">';
         for (var i = 0; i < MILESTONES.length; i++) {
             var ms = MILESTONES[i];
@@ -488,24 +747,18 @@
         infoEl.innerHTML = html;
     }
 
-    /* =========================================================
-       DATE PICKER RENDER
-       ========================================================= */
     function renderDatePickers() {
         var container = document.getElementById('ev-dates-container');
         if (!container) return;
 
+        syncAppointmentCount();
         var qty = state.packageQty;
         var suggestions = suggestAppointmentDates(qty);
-
-        // Resize appointment dates array
-        while (state.appointmentDates.length < qty) state.appointmentDates.push('');
-        if (state.appointmentDates.length > qty) state.appointmentDates.length = qty;
-
         var minDate = formatDateISO(new Date(today().getTime() + DAY_MS));
         var html = '';
 
         for (var i = 0; i < qty; i++) {
+            var apt = state.appointments[i];
             var label = qty === 1
                 ? 'Kies je afspraakdatum'
                 : 'Afspraak ' + (i + 1);
@@ -527,7 +780,7 @@
                 html += '</div>';
             }
 
-            html += '<input type="date" class="ev-date-input" data-idx="' + i + '" value="' + state.appointmentDates[i] + '" min="' + minDate + '">';
+            html += '<input type="date" class="ev-date-input" data-idx="' + i + '" value="' + apt.date + '" min="' + minDate + '">';
             html += '</div>';
         }
 
@@ -535,47 +788,46 @@
     }
 
     /* =========================================================
-       PRICE SUMMARY
+       PRICE SUMMARY (iterates over all appointments)
        ========================================================= */
     function calculateTotal() {
-        var duration = state.duration;
-        var base = standardPrice(duration);
-        var isDaytime = state.timeSlot === 'working';
-        var addonsTotal = 0;
-        var addons = buildAddons(duration);
-
-        var lines = [];
-        lines.push({ label: 'Echo ' + duration + ' min', amount: base });
-
-        if (isDaytime) {
-            lines.push({ label: 'Dagkorting \u2600\uFE0F', amount: -DAYTIME_DISCOUNT, isDiscount: true });
-        }
-
-        for (var i = 0; i < addons.length; i++) {
-            var a = addons[i];
-            var addonState = state.addons[a.id] || { qty: 0 };
-            if (addonState.qty > 0 && a.unitPrice > 0) {
-                var cost = a.unitPrice * addonState.qty;
-                addonsTotal += cost;
-                var qtyLabel = addonState.qty > 1 ? ' x' + addonState.qty : '';
-                lines.push({ label: a.name + qtyLabel, amount: cost });
-            }
-        }
-
-        var perSession = sessionPrice(duration, state.timeSlot) + addonsTotal;
+        syncAppointmentCount();
         var qty = state.packageQty;
-        var rawTotal = perSession * qty;
+        var lines = [];
+        var rawTotal = 0;
+
+        for (var i = 0; i < qty; i++) {
+            var cfg = getEffectiveConfig(i);
+            var base = standardPrice(cfg.duration);
+            var isDaytime = cfg.timeSlot === 'working';
+            var aptLabel = qty > 1 ? 'Afspraak ' + (i + 1) + ': ' : '';
+
+            lines.push({ label: aptLabel + 'Echo ' + cfg.duration + ' min', amount: base });
+
+            if (isDaytime) {
+                lines.push({ label: aptLabel + 'Dagkorting \u2600\uFE0F', amount: -DAYTIME_DISCOUNT, isDiscount: true });
+            }
+
+            var addons = buildAddons(cfg.duration);
+            for (var j = 0; j < addons.length; j++) {
+                var a = addons[j];
+                var addonState = cfg.addons[a.id] || { qty: 0 };
+                if (addonState.qty > 0 && a.unitPrice > 0) {
+                    var cost = a.unitPrice * addonState.qty;
+                    var qtyLabel = addonState.qty > 1 ? ' x' + addonState.qty : '';
+                    lines.push({ label: aptLabel + a.name + qtyLabel, amount: cost });
+                }
+            }
+
+            rawTotal += sessionPriceForApt(i);
+        }
+
         var disc = packageDiscount(qty);
         var discountAmount = rawTotal * disc;
         var total = rawTotal - discountAmount;
 
-        if (qty > 1) {
-            lines.push({ label: qty + 'x afspraken subtotaal', amount: rawTotal });
-        }
-
         return {
             lines: lines,
-            perSession: perSession,
             qty: qty,
             discount: disc,
             discountAmount: discountAmount,
@@ -607,11 +859,85 @@
     }
 
     function renderAll() {
-        renderIncludedGrid();
-        renderAddons();
-        renderPregnancy();
-        renderDatePickers();
+        renderStepBar();
+        renderStepNav();
+
+        if (state.currentStep === 0) {
+            renderIncludedGrid();
+            renderAddons();
+        }
+        if (state.currentStep === 1) {
+            renderAppointmentConfigs();
+        }
+        if (state.currentStep === 2) {
+            renderPregnancy();
+            renderDatePickers();
+        }
         renderSummary();
+    }
+
+    /* =========================================================
+       AUTO-SELECTION HELPERS
+       ========================================================= */
+    function resetAutoSelectionsForApt(aptIdx) {
+        var apt = state.appointments[aptIdx];
+        var autoKeys = ['recording', 'usb'];
+        var addons = buildAddons(apt.duration);
+        for (var i = 0; i < addons.length; i++) {
+            var a = addons[i];
+            if (autoKeys.indexOf(a.id) !== -1) {
+                if (a.autoSelected) {
+                    apt.addons[a.id] = { qty: 1 };
+                }
+            }
+        }
+    }
+
+    /* =========================================================
+       ADDON CLICK HANDLER (works for both main and mini addons)
+       ========================================================= */
+    function handleAddonClick(e, container) {
+        var row = e.target.closest('.ev-addon-row');
+        if (!row || row.classList.contains('disabled')) return;
+
+        var id = row.getAttribute('data-addon-id');
+        var type = row.getAttribute('data-type');
+        var aptIdx = parseInt(row.getAttribute('data-apt') || '0', 10);
+        var apt = state.appointments[aptIdx];
+
+        if (type === 'toggle') {
+            if (!apt.addons[id]) apt.addons[id] = { qty: 0 };
+            apt.addons[id].qty = apt.addons[id].qty > 0 ? 0 : 1;
+            renderAll();
+            return;
+        }
+
+        var maxQty = parseInt(row.getAttribute('data-max') || '99', 10);
+        if (!apt.addons[id]) apt.addons[id] = { qty: 0 };
+
+        if (e.target.closest('.ev-qty-minus')) {
+            apt.addons[id].qty = Math.max(0, apt.addons[id].qty - 1);
+            renderAll();
+        } else if (e.target.closest('.ev-qty-plus')) {
+            apt.addons[id].qty = Math.min(maxQty, apt.addons[id].qty + 1);
+            renderAll();
+        } else if (!e.target.closest('.ev-qty-stepper')) {
+            apt.addons[id].qty = apt.addons[id].qty > 0 ? 0 : 1;
+            renderAll();
+        }
+    }
+
+    /* =========================================================
+       DEEP COPY HELPER
+       ========================================================= */
+    function deepCopyAddons(addons) {
+        var copy = {};
+        for (var key in addons) {
+            if (addons.hasOwnProperty(key)) {
+                copy[key] = { qty: addons[key].qty };
+            }
+        }
+        return copy;
     }
 
     /* =========================================================
@@ -623,21 +949,26 @@
 
         if (!slider) return;
 
-        // Duration slider
+        // Initialize step display
+        setStep(0);
+
+        // Duration slider (step 0 main slider)
         slider.addEventListener('input', function () {
-            state.duration = parseInt(this.value, 10);
-            if (durationLabel) durationLabel.textContent = state.duration;
-            resetAutoSelections();
-            renderAll();
+            state.appointments[0].duration = parseInt(this.value, 10);
+            if (durationLabel) durationLabel.textContent = state.appointments[0].duration;
+            resetAutoSelectionsForApt(0);
+            renderIncludedGrid();
+            renderAddons();
+            renderSummary();
         });
 
-        // Time-of-day toggles
-        document.querySelectorAll('.ev-toggle[data-time]').forEach(function (btn) {
+        // Time-of-day toggles (step 0)
+        document.querySelectorAll('.ev-toggle[data-time]:not(.ev-mini-time)').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                document.querySelectorAll('.ev-toggle[data-time]').forEach(function (b) { b.classList.remove('active'); });
+                document.querySelectorAll('.ev-toggle[data-time]:not(.ev-mini-time)').forEach(function (b) { b.classList.remove('active'); });
                 this.classList.add('active');
-                state.timeSlot = this.getAttribute('data-time');
-                renderAll();
+                state.appointments[0].timeSlot = this.getAttribute('data-time');
+                renderSummary();
             });
         });
 
@@ -647,40 +978,78 @@
                 document.querySelectorAll('.ev-package-btn').forEach(function (b) { b.classList.remove('active'); });
                 this.classList.add('active');
                 state.packageQty = parseInt(this.getAttribute('data-qty'), 10);
-                renderAll();
+                syncAppointmentCount();
+                renderSummary();
             });
         });
 
-        // Addon clicks (delegated)
-        document.getElementById('ev-addons-list').addEventListener('click', function (e) {
-            var row = e.target.closest('.ev-addon-row');
-            if (!row || row.classList.contains('disabled')) return;
+        // Addon clicks (step 0, delegated)
+        var addonsListMain = document.getElementById('ev-addons-list');
+        if (addonsListMain) {
+            addonsListMain.addEventListener('click', function (e) {
+                handleAddonClick(e, this);
+            });
+        }
 
-            var id = row.getAttribute('data-addon-id');
-            var type = row.getAttribute('data-type');
+        // Step 1 delegated events (appointment configs)
+        var aptConfigs = document.getElementById('ev-apt-configs');
+        if (aptConfigs) {
+            aptConfigs.addEventListener('click', function (e) {
+                // Inherit / Customize toggle
+                var toggleBtn = e.target.closest('.ev-apt-toggle-btn');
+                if (toggleBtn) {
+                    var aptIdx = parseInt(toggleBtn.getAttribute('data-apt'), 10);
+                    var action = toggleBtn.getAttribute('data-action');
+                    if (action === 'inherit') {
+                        state.appointments[aptIdx].customized = false;
+                    } else if (action === 'customize') {
+                        if (!state.appointments[aptIdx].customized) {
+                            // Deep copy from appointment 0
+                            var src = state.appointments[0];
+                            state.appointments[aptIdx].duration = src.duration;
+                            state.appointments[aptIdx].timeSlot = src.timeSlot;
+                            state.appointments[aptIdx].addons = deepCopyAddons(src.addons);
+                            state.appointments[aptIdx].customized = true;
+                        }
+                    }
+                    renderAppointmentConfigs();
+                    renderSummary();
+                    return;
+                }
 
-            if (type === 'toggle') {
-                if (!state.addons[id]) state.addons[id] = { qty: 0 };
-                state.addons[id].qty = state.addons[id].qty > 0 ? 0 : 1;
-                renderAll();
-                return;
-            }
+                // Time toggle inside mini-config
+                var timeBtn = e.target.closest('.ev-mini-time');
+                if (timeBtn) {
+                    var aptIdx2 = parseInt(timeBtn.getAttribute('data-apt'), 10);
+                    // Deactivate siblings
+                    var siblings = timeBtn.parentNode.querySelectorAll('.ev-mini-time');
+                    for (var s = 0; s < siblings.length; s++) siblings[s].classList.remove('active');
+                    timeBtn.classList.add('active');
+                    state.appointments[aptIdx2].timeSlot = timeBtn.getAttribute('data-time');
+                    renderAppointmentConfigs();
+                    renderSummary();
+                    return;
+                }
 
-            var maxQty = parseInt(row.getAttribute('data-max') || '99', 10);
-            if (!state.addons[id]) state.addons[id] = { qty: 0 };
+                // Addon clicks inside mini-config
+                handleAddonClick(e, aptConfigs);
+            });
+        }
 
-            if (e.target.closest('.ev-qty-minus')) {
-                state.addons[id].qty = Math.max(0, state.addons[id].qty - 1);
-                renderAll();
-            } else if (e.target.closest('.ev-qty-plus')) {
-                state.addons[id].qty = Math.min(maxQty, state.addons[id].qty + 1);
-                renderAll();
-            } else if (!e.target.closest('.ev-qty-stepper')) {
-                // Clicking the row (outside stepper) toggles between 0 and 1
-                state.addons[id].qty = state.addons[id].qty > 0 ? 0 : 1;
-                renderAll();
-            }
-        });
+        // Step navigation (delegated)
+        var stepNav = document.getElementById('ev-step-nav');
+        if (stepNav) {
+            stepNav.addEventListener('click', function (e) {
+                if (e.target.id === 'ev-next-btn' || e.target.closest('#ev-next-btn')) {
+                    setStep(state.currentStep + 1);
+                    renderSummary();
+                }
+                if (e.target.id === 'ev-prev-btn' || e.target.closest('#ev-prev-btn')) {
+                    setStep(state.currentStep - 1);
+                    renderSummary();
+                }
+            });
+        }
 
         // Pregnancy type toggles
         document.querySelectorAll('.ev-preg-toggle').forEach(function (btn) {
@@ -690,7 +1059,8 @@
                 state.pregType = this.getAttribute('data-preg-type');
                 var wrapper = document.getElementById('ev-preg-date-wrapper');
                 if (wrapper) wrapper.style.display = '';
-                renderAll();
+                renderPregnancy();
+                renderDatePickers();
             });
         });
 
@@ -714,7 +1084,8 @@
                     this.classList.remove('has-error');
                     if (errorEl) errorEl.remove();
                 }
-                renderAll();
+                renderPregnancy();
+                renderDatePickers();
             });
         }
 
@@ -724,7 +1095,7 @@
             datesContainer.addEventListener('change', function (e) {
                 if (e.target.classList.contains('ev-date-input')) {
                     var idx = parseInt(e.target.getAttribute('data-idx'), 10);
-                    state.appointmentDates[idx] = e.target.value;
+                    state.appointments[idx].date = e.target.value;
                 }
             });
             datesContainer.addEventListener('click', function (e) {
@@ -732,46 +1103,38 @@
                 if (!btn) return;
                 var idx = parseInt(btn.getAttribute('data-idx'), 10);
                 var date = btn.getAttribute('data-date');
-                state.appointmentDates[idx] = date;
+                state.appointments[idx].date = date;
                 renderDatePickers();
             });
         }
 
         // Book button
-        document.getElementById('ev-book-btn').addEventListener('click', function () {
-            var calc = calculateTotal();
-            var msg = 'Bedankt voor je interesse! Je selectie:\n\n';
-            msg += 'Duur: ' + state.duration + ' minuten\n';
-            msg += 'Tijdstip: ' + (state.timeSlot === 'working' ? 'Overdag (€10 korting)' : 'Avond/Weekend') + '\n';
-            msg += 'Aantal afspraken: ' + state.packageQty + '\n';
+        var bookBtn = document.getElementById('ev-book-btn');
+        if (bookBtn) {
+            bookBtn.addEventListener('click', function () {
+                var calc = calculateTotal();
+                var msg = 'Bedankt voor je interesse! Je selectie:\n\n';
 
-            for (var i = 0; i < state.appointmentDates.length; i++) {
-                if (state.appointmentDates[i]) {
-                    var d = parseDate(state.appointmentDates[i]);
-                    msg += 'Datum ' + (i + 1) + ': ' + (d ? formatDateNL(d) : state.appointmentDates[i]) + '\n';
+                for (var i = 0; i < state.packageQty; i++) {
+                    var cfg = getEffectiveConfig(i);
+                    if (state.packageQty > 1) msg += 'Afspraak ' + (i + 1) + ':\n';
+                    msg += '  Duur: ' + cfg.duration + ' minuten\n';
+                    msg += '  Tijdstip: ' + (cfg.timeSlot === 'working' ? 'Overdag (\u20AC10 korting)' : 'Avond/Weekend') + '\n';
+                    if (state.appointments[i].date) {
+                        var d = parseDate(state.appointments[i].date);
+                        msg += '  Datum: ' + (d ? formatDateNL(d) : state.appointments[i].date) + '\n';
+                    }
+                    msg += '\n';
                 }
-            }
 
-            msg += 'Totaal: ' + euro(calc.total) + '\n\n';
-            msg += 'Neem contact op om je afspraak te bevestigen!';
-            alert(msg);
-        });
+                msg += 'Totaal: ' + euro(calc.total) + '\n\n';
+                msg += 'Neem contact op om je afspraak te bevestigen!';
+                alert(msg);
+            });
+        }
 
         // Initial render
         renderAll();
-    }
-
-    function resetAutoSelections() {
-        var autoKeys = ['recording', 'usb'];
-        var addons = buildAddons(state.duration);
-        for (var i = 0; i < addons.length; i++) {
-            var a = addons[i];
-            if (autoKeys.indexOf(a.id) !== -1) {
-                if (a.autoSelected) {
-                    state.addons[a.id] = { qty: 1 };
-                }
-            }
-        }
     }
 
     // Boot

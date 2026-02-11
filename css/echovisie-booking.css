@@ -84,6 +84,113 @@
     font-weight: 400;
 }
 
+/* ---------- Step bar ---------- */
+.ev-step-bar-wrap {
+    padding: 1.2rem 1.5rem;
+    border-bottom: 1px solid var(--ev-border);
+    background: var(--ev-bg);
+}
+.ev-step-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+}
+.ev-step-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .3rem;
+    flex-shrink: 0;
+}
+.ev-step-dot {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .85rem;
+    font-weight: 700;
+    border: 2px solid var(--ev-border);
+    background: var(--ev-bg);
+    color: var(--ev-text-muted);
+    transition: all .3s;
+}
+.ev-step-dot.active {
+    border-color: var(--ev-primary-dark);
+    background: var(--ev-primary);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(247, 148, 29, .35);
+}
+.ev-step-dot.completed {
+    border-color: var(--ev-success);
+    background: var(--ev-success);
+    color: #fff;
+}
+.ev-step-label {
+    font-size: .72rem;
+    font-weight: 600;
+    color: var(--ev-text-muted);
+    text-align: center;
+    white-space: nowrap;
+}
+.ev-step-item:has(.ev-step-dot.active) .ev-step-label {
+    color: var(--ev-primary-dark);
+}
+.ev-step-item:has(.ev-step-dot.completed) .ev-step-label {
+    color: var(--ev-success);
+}
+.ev-step-line {
+    flex: 1;
+    height: 2px;
+    background: var(--ev-border);
+    min-width: 40px;
+    max-width: 80px;
+    margin: 0 .5rem;
+    margin-bottom: 1.3rem; /* offset for label height */
+    transition: background .3s;
+}
+.ev-step-line.completed {
+    background: var(--ev-success);
+}
+
+/* ---------- Step navigation ---------- */
+.ev-step-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--ev-border);
+}
+.ev-step-prev-btn,
+.ev-step-next-btn {
+    padding: .7rem 1.4rem;
+    border: 2px solid var(--ev-border);
+    border-radius: var(--ev-radius);
+    background: var(--ev-bg);
+    font-family: inherit;
+    font-size: .9rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--ev-text);
+    transition: border-color .2s, background .2s, transform .15s;
+}
+.ev-step-prev-btn:hover {
+    border-color: var(--ev-primary);
+    background: var(--ev-primary-light);
+}
+.ev-step-next-btn {
+    border-color: var(--ev-primary);
+    background: var(--ev-primary);
+    color: #fff;
+}
+.ev-step-next-btn:hover {
+    background: var(--ev-primary-dark);
+    border-color: var(--ev-primary-dark);
+    transform: translateY(-1px);
+}
+
 /* ---------- Sections ---------- */
 .ev-section {
     padding: 1.4rem 1.5rem;
@@ -111,7 +218,8 @@
     padding: 0 4px;
 }
 
-#ev-duration-slider {
+#ev-duration-slider,
+.ev-mini-slider {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
@@ -121,7 +229,8 @@
     outline: none;
     cursor: pointer;
 }
-#ev-duration-slider::-webkit-slider-thumb {
+#ev-duration-slider::-webkit-slider-thumb,
+.ev-mini-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
     width: 28px;
@@ -133,11 +242,13 @@
     cursor: grab;
     transition: transform .15s;
 }
-#ev-duration-slider::-webkit-slider-thumb:active {
+#ev-duration-slider::-webkit-slider-thumb:active,
+.ev-mini-slider::-webkit-slider-thumb:active {
     transform: scale(1.15);
     cursor: grabbing;
 }
-#ev-duration-slider::-moz-range-thumb {
+#ev-duration-slider::-moz-range-thumb,
+.ev-mini-slider::-moz-range-thumb {
     width: 28px;
     height: 28px;
     border-radius: 50%;
@@ -420,6 +531,117 @@
     font-weight: 700;
     background: var(--ev-success);
     color: #fff;
+}
+
+/* ---------- Appointment config cards (step 1) ---------- */
+.ev-apt-card {
+    background: var(--ev-card);
+    border: 1px solid var(--ev-border);
+    border-radius: var(--ev-radius);
+    margin-bottom: .8rem;
+    overflow: hidden;
+    transition: border-color .2s;
+}
+.ev-apt-card:last-child {
+    margin-bottom: 0;
+}
+.ev-apt-card-header {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    padding: .85rem 1rem;
+    background: var(--ev-primary-light);
+    border-bottom: 1px solid var(--ev-border);
+}
+.ev-apt-card-number {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--ev-primary);
+    color: #fff;
+    font-weight: 700;
+    font-size: .9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.ev-apt-card-title {
+    font-weight: 700;
+    font-size: .95rem;
+    color: var(--ev-text);
+}
+.ev-apt-card-summary {
+    margin-left: auto;
+    font-size: .82rem;
+    color: var(--ev-text-muted);
+    font-weight: 500;
+}
+
+/* Inherit / Customize toggle */
+.ev-apt-toggle-bar {
+    display: flex;
+    gap: .5rem;
+    padding: .7rem 1rem;
+    border-bottom: 1px solid var(--ev-border);
+}
+.ev-apt-toggle-btn {
+    flex: 1;
+    padding: .55rem .8rem;
+    border: 2px solid var(--ev-border);
+    border-radius: 8px;
+    background: var(--ev-card);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--ev-text-muted);
+    transition: all .2s;
+}
+.ev-apt-toggle-btn:hover {
+    border-color: var(--ev-primary);
+}
+.ev-apt-toggle-btn.active {
+    border-color: var(--ev-primary-dark);
+    background: var(--ev-primary-light);
+    color: var(--ev-primary-dark);
+}
+
+/* Mini-configurator inside appointment card */
+.ev-apt-mini-config {
+    padding: .8rem 1rem 1rem;
+}
+.ev-apt-mini-row {
+    margin-bottom: .9rem;
+}
+.ev-apt-mini-row:last-child {
+    margin-bottom: 0;
+}
+.ev-apt-mini-config .ev-duration-display {
+    font-size: 1.15rem;
+    margin-top: .5rem;
+}
+.ev-apt-mini-config .ev-toggle-group {
+    gap: .5rem;
+}
+.ev-apt-mini-config .ev-toggle {
+    padding: .6rem .4rem;
+    font-size: .82rem;
+}
+.ev-apt-mini-config .ev-toggle-icon {
+    font-size: 1.1rem;
+}
+.ev-apt-mini-config .ev-addon-row {
+    padding: .5rem .7rem;
+}
+.ev-apt-mini-config .ev-addon-name {
+    font-size: .82rem;
+}
+.ev-apt-mini-config .ev-addon-desc {
+    font-size: .72rem;
+}
+.ev-apt-mini-config .ev-addon-price {
+    font-size: .82rem;
 }
 
 /* ---------- Pregnancy helper ---------- */
@@ -707,5 +929,25 @@
     }
     .ev-preg-toggle-group {
         flex-direction: column;
+    }
+    .ev-step-bar-wrap {
+        padding: 1rem;
+    }
+    .ev-step-line {
+        min-width: 20px;
+    }
+    .ev-step-nav {
+        padding: .8rem 1rem;
+    }
+    .ev-apt-toggle-bar {
+        flex-direction: column;
+    }
+    .ev-apt-card-header {
+        flex-wrap: wrap;
+    }
+    .ev-apt-card-summary {
+        margin-left: 0;
+        width: 100%;
+        margin-top: .3rem;
     }
 }
