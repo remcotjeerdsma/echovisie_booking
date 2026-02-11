@@ -318,6 +318,36 @@
     color: var(--ev-success);
 }
 
+/* ---------- Daytime discount info box ---------- */
+.ev-daytime-info {
+    display: flex;
+    align-items: flex-start;
+    gap: .8rem;
+    padding: .9rem 1.1rem;
+    background: linear-gradient(135deg, #FFF8E1, #FFF3CC);
+    border: 2px solid #FFD54F;
+    border-radius: var(--ev-radius);
+}
+.ev-daytime-info-icon {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+    line-height: 1;
+}
+.ev-daytime-info-text {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+}
+.ev-daytime-info-text strong {
+    font-size: .92rem;
+    color: var(--ev-primary-dark);
+}
+.ev-daytime-info-text span {
+    font-size: .82rem;
+    color: var(--ev-text-muted);
+    line-height: 1.4;
+}
+
 /* ---------- Included features grid ---------- */
 .ev-included-grid {
     display: grid;
@@ -969,6 +999,27 @@
 }
 .ev-slot-btn.selected .ev-slot-staff {
     color: var(--ev-primary-dark);
+}
+
+/* Daytime discount badge on slots */
+.ev-slot-discount {
+    font-size: .65rem;
+    font-weight: 700;
+    color: var(--ev-success);
+    background: #E8F5E9;
+    padding: .1rem .35rem;
+    border-radius: 4px;
+    line-height: 1;
+}
+.ev-slot-btn.selected .ev-slot-discount {
+    background: #C8E6C9;
+    color: #2E7D32;
+}
+.ev-slot-daytime {
+    border-color: #C8E6C9;
+}
+.ev-slot-daytime:hover {
+    border-color: var(--ev-success);
 }
 
 /* Loading spinner */

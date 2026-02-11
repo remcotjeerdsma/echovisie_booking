@@ -26,6 +26,7 @@
     ];
 
     var STEP_LABELS = ['Samenstellen', 'Afspraken', 'Planning', 'Tijdslot'];
+    var DAYTIME_CUTOFF = '17:00'; // Slots before this time qualify for €10 discount
 
     /* =========================================================
        STATE
@@ -53,7 +54,6 @@
     function makeDefaultAppointment() {
         return {
             duration: 10,
-            timeSlot: 'working',
             addons: {},
             date: '',
             customized: false    // false = inherits from appointment 0
@@ -68,7 +68,6 @@
         var base = state.appointments[0];
         return {
             duration: base.duration,
-            timeSlot: base.timeSlot,
             addons: base.addons,
             date: state.appointments[idx].date,
             customized: false
@@ -88,6 +87,19 @@
     /* =========================================================
        PRICING RULES
        ========================================================= */
+    function isDaytimeSlot(timeStr) {
+        if (!timeStr) return false;
+        return timeStr < DAYTIME_CUTOFF;
+    }
+
+    function getTimeSlotForApt(aptIdx) {
+        var slot = state.selectedSlots[aptIdx];
+        if (slot && slot.time) {
+            return isDaytimeSlot(slot.time) ? 'working' : 'evening';
+        }
+        return 'unknown'; // no slot selected yet
+    }
+
     function standardPrice(duration) {
         return 20 + Math.max(0, (duration - 10) / 10) * 15;
     }
@@ -557,9 +569,8 @@
             html += '<span class="ev-apt-card-title">Afspraak ' + (i + 1) + '</span>';
 
             // Show summary of config
-            html += '<span class="ev-apt-card-summary">' + cfg.duration + ' min &middot; ';
-            html += (cfg.timeSlot === 'working' ? 'Overdag' : 'Avond/Weekend');
-            html += ' &middot; ' + euro(sessionPriceForApt(i)) + '</span>';
+            html += '<span class="ev-apt-card-summary">' + cfg.duration + ' min';
+            html += ' &middot; vanaf ' + euro(standardPrice(cfg.duration)) + '</span>';
             html += '</div>';
 
             if (i > 0) {
@@ -601,19 +612,6 @@
         html += '</div>';
         html += '</div>';
         html += '<div class="ev-duration-display"><span class="ev-mini-duration-val" data-apt="' + aptIdx + '">' + cfg.duration + '</span> minuten</div>';
-        html += '</div>';
-
-        // Time toggle
-        html += '<div class="ev-apt-mini-row">';
-        html += '<label class="ev-label">Tijdstip</label>';
-        html += '<div class="ev-toggle-group">';
-        html += '<button type="button" class="ev-toggle ev-mini-time' + (cfg.timeSlot === 'working' ? ' active' : '') + '" data-time="working" data-apt="' + aptIdx + '">';
-        html += '<span class="ev-toggle-icon">&#9728;&#65039;</span> Overdag';
-        html += '<span class="ev-toggle-discount">&euro;10 korting!</span></button>';
-        html += '<button type="button" class="ev-toggle ev-mini-time' + (cfg.timeSlot === 'evening' ? ' active' : '') + '" data-time="evening" data-apt="' + aptIdx + '">';
-        html += '<span class="ev-toggle-icon">&#9790;</span> Avond / Weekend';
-        html += '<span class="ev-toggle-price">standaardtarief</span></button>';
-        html += '</div>';
         html += '</div>';
 
         // Addons
@@ -679,7 +677,9 @@
 
     function sessionPriceForApt(aptIdx) {
         var cfg = getEffectiveConfig(aptIdx);
-        var base = sessionPrice(cfg.duration, cfg.timeSlot);
+        var ts = getTimeSlotForApt(aptIdx);
+        // If no slot selected yet, use standard (evening) price
+        var base = sessionPrice(cfg.duration, ts === 'unknown' ? 'evening' : ts);
         var addonsTotal = 0;
         var addons = buildAddons(cfg.duration);
         for (var i = 0; i < addons.length; i++) {
@@ -818,7 +818,6 @@
             var cfg = getEffectiveConfig(i);
             aptData.push({
                 duration: cfg.duration,
-                timeSlot: cfg.timeSlot,
                 date: state.appointments[i].date
             });
         }
@@ -927,15 +926,19 @@
                     } else {
                         html += '<p class="ev-slot-date-label">Beschikbaar op <strong>' + formatDateNL(dateObj) + '</strong></p>';
 
-                        var demoSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '13:00', '13:30', '14:00'];
+                        var demoSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '13:00', '13:30', '14:00', '17:30', '18:00', '19:00'];
                         var demoStaff = ['Ida', 'Christel', 'Rianne'];
                         html += '<div class="ev-slot-grid">';
                         for (var s = 0; s < demoSlots.length; s++) {
                             var staffName = demoStaff[s % 3];
                             var selectedCls = (state.selectedSlots[d] && state.selectedSlots[d].time === demoSlots[s]) ? ' selected' : '';
-                            html += '<button type="button" class="ev-slot-btn' + selectedCls + '" data-apt="' + d + '" data-time="' + demoSlots[s] + '" data-staff="' + staffName + '">';
+                            var daytimeCls = isDaytimeSlot(demoSlots[s]) ? ' ev-slot-daytime' : '';
+                            html += '<button type="button" class="ev-slot-btn' + selectedCls + daytimeCls + '" data-apt="' + d + '" data-time="' + demoSlots[s] + '" data-staff="' + staffName + '">';
                             html += '<span class="ev-slot-time">' + demoSlots[s] + '</span>';
                             html += '<span class="ev-slot-staff">' + staffName + '</span>';
+                            if (isDaytimeSlot(demoSlots[s])) {
+                                html += '<span class="ev-slot-discount">\u2212\u20AC10</span>';
+                            }
                             html += '</button>';
                         }
                         html += '</div>';
@@ -986,10 +989,14 @@
                         && state.selectedSlots[i].time === slot.time
                         && state.selectedSlots[i].staff_id === slot.staff_id;
                     var selCls = isSelected ? ' selected' : '';
-                    html += '<button type="button" class="ev-slot-btn' + selCls + '" data-apt="' + i + '" data-time="' + slot.time + '" data-staff-id="' + slot.staff_id + '" data-staff="' + (slot.staff_name || '') + '">';
+                    var daytimeCls2 = isDaytimeSlot(slot.time) ? ' ev-slot-daytime' : '';
+                    html += '<button type="button" class="ev-slot-btn' + selCls + daytimeCls2 + '" data-apt="' + i + '" data-time="' + slot.time + '" data-staff-id="' + slot.staff_id + '" data-staff="' + (slot.staff_name || '') + '">';
                     html += '<span class="ev-slot-time">' + slot.time + '</span>';
                     if (slot.staff_name) {
                         html += '<span class="ev-slot-staff">' + slot.staff_name + '</span>';
+                    }
+                    if (isDaytimeSlot(slot.time)) {
+                        html += '<span class="ev-slot-discount">\u2212\u20AC10</span>';
                     }
                     html += '</button>';
                 }
@@ -1028,7 +1035,6 @@
                 var cfg = getEffectiveConfig(i);
                 if (state.packageQty > 1) msg += 'Afspraak ' + (i + 1) + ':\n';
                 msg += '  Duur: ' + cfg.duration + ' minuten\n';
-                msg += '  Tijdstip: ' + (cfg.timeSlot === 'working' ? 'Overdag (\u20AC10 korting)' : 'Avond/Weekend') + '\n';
                 var slotInfo = state.selectedSlots[i];
                 if (slotInfo) {
                     msg += '  Slot: ' + slotInfo.time + ' bij ' + slotInfo.staff + '\n';
@@ -1051,7 +1057,7 @@
             var slotJ = state.selectedSlots[j] || {};
             aptData.push({
                 duration: cfgJ.duration,
-                timeSlot: cfgJ.timeSlot,
+                timeSlot: getTimeSlotForApt(j),
                 addons: cfgJ.addons,
                 date: state.appointments[j].date,
                 slotTime: slotJ.time || '',
@@ -1112,7 +1118,8 @@
         for (var i = 0; i < qty; i++) {
             var cfg = getEffectiveConfig(i);
             var base = standardPrice(cfg.duration);
-            var isDaytime = cfg.timeSlot === 'working';
+            var ts = getTimeSlotForApt(i);
+            var isDaytime = ts === 'working';
             var aptLabel = qty > 1 ? 'Afspraak ' + (i + 1) + ': ' : '';
 
             lines.push({ label: aptLabel + 'Echo ' + cfg.duration + ' min', amount: base });
@@ -1278,16 +1285,6 @@
             renderSummary();
         });
 
-        // Time-of-day toggles (step 0)
-        document.querySelectorAll('.ev-toggle[data-time]:not(.ev-mini-time)').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                document.querySelectorAll('.ev-toggle[data-time]:not(.ev-mini-time)').forEach(function (b) { b.classList.remove('active'); });
-                this.classList.add('active');
-                state.appointments[0].timeSlot = this.getAttribute('data-time');
-                renderSummary();
-            });
-        });
-
         // Package buttons
         document.querySelectorAll('.ev-package-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
@@ -1323,25 +1320,10 @@
                             // Deep copy from appointment 0
                             var src = state.appointments[0];
                             state.appointments[aptIdx].duration = src.duration;
-                            state.appointments[aptIdx].timeSlot = src.timeSlot;
                             state.appointments[aptIdx].addons = deepCopyAddons(src.addons);
                             state.appointments[aptIdx].customized = true;
                         }
                     }
-                    renderAppointmentConfigs();
-                    renderSummary();
-                    return;
-                }
-
-                // Time toggle inside mini-config
-                var timeBtn = e.target.closest('.ev-mini-time');
-                if (timeBtn) {
-                    var aptIdx2 = parseInt(timeBtn.getAttribute('data-apt'), 10);
-                    // Deactivate siblings
-                    var siblings = timeBtn.parentNode.querySelectorAll('.ev-mini-time');
-                    for (var s = 0; s < siblings.length; s++) siblings[s].classList.remove('active');
-                    timeBtn.classList.add('active');
-                    state.appointments[aptIdx2].timeSlot = timeBtn.getAttribute('data-time');
                     renderAppointmentConfigs();
                     renderSummary();
                     return;

@@ -149,7 +149,8 @@ function echovisie_ajax_book() {
         $apt = $data['appointments'][ $i ] ?? array();
 
         $duration  = absint( $apt['duration'] ?? 10 );
-        $time_slot = sanitize_text_field( $apt['timeSlot'] ?? 'working' );
+        $time_slot = sanitize_text_field( $apt['timeSlot'] ?? 'unknown' );
+        $slot_time = sanitize_text_field( $apt['slotTime'] ?? '' );
         $date      = sanitize_text_field( $apt['date'] ?? '' );
 
         // Validate duration is a valid step
@@ -178,6 +179,7 @@ function echovisie_ajax_book() {
             'index'      => $i,
             'duration'   => $duration,
             'time_slot'  => $time_slot,
+            'slot_time'  => $slot_time,
             'date'       => $date,
             'service_id' => $service_id,
             'extras'     => $extras,
@@ -451,10 +453,6 @@ function echovisie_checkout_shortcode() {
     $package_qty  = $booking['package_qty'];
     $coupon       = $booking['coupon'];
 
-    // Pricing helpers (mirror JS logic)
-    $daytime_discount = 10;
-    $time_labels = array( 'working' => 'Overdag', 'evening' => 'Avond / Weekend' );
-
     ob_start();
     ?>
     <div class="ev-booking-wrapper">
@@ -470,7 +468,11 @@ function echovisie_checkout_shortcode() {
                 $label = $package_qty > 1
                     ? 'Afspraak ' . ( $apt['index'] + 1 )
                     : 'Jouw echo';
-                $time_label = $time_labels[ $apt['time_slot'] ] ?? $apt['time_slot'];
+                $slot_time = $apt['slot_time'] ?? '';
+                $time_label = '';
+                if ( $slot_time ) {
+                    $time_label = $slot_time < '17:00' ? 'Overdag (' . esc_html( $slot_time ) . ')' : 'Avond (' . esc_html( $slot_time ) . ')';
+                }
                 $preferred_date = $apt['date']
                     ? date_i18n( 'j F Y', strtotime( $apt['date'] ) )
                     : 'Nog niet gekozen';
@@ -481,8 +483,8 @@ function echovisie_checkout_shortcode() {
                         <span class="ev-apt-card-number"><?php echo esc_html( $apt['index'] + 1 ); ?></span>
                         <span class="ev-apt-card-title"><?php echo esc_html( $label ); ?></span>
                         <span class="ev-apt-card-summary">
-                            <?php echo esc_html( $apt['duration'] ); ?> min &middot;
-                            <?php echo esc_html( $time_label ); ?>
+                            <?php echo esc_html( $apt['duration'] ); ?> min<?php if ( $time_label ) : ?> &middot;
+                            <?php echo $time_label; ?><?php endif; ?>
                         </span>
                     </div>
                     <div class="ev-apt-mini-config">
@@ -677,20 +679,14 @@ function echovisie_booking_shortcode() {
                     <div class="ev-duration-display"><span id="ev-duration-value">10</span> minuten</div>
                 </div>
 
-                <!-- Time-of-day selector -->
+                <!-- Daytime discount info -->
                 <div class="ev-section ev-time-section">
-                    <label class="ev-label">Tijdstip</label>
-                    <div class="ev-toggle-group">
-                        <button type="button" class="ev-toggle active" data-time="working">
-                            <span class="ev-toggle-icon">&#9728;&#65039;</span>
-                            Overdag
-                            <span class="ev-toggle-discount">&euro;10 korting!</span>
-                        </button>
-                        <button type="button" class="ev-toggle" data-time="evening">
-                            <span class="ev-toggle-icon">&#9790;</span>
-                            Avond / Weekend
-                            <span class="ev-toggle-price">standaardtarief</span>
-                        </button>
+                    <div class="ev-daytime-info">
+                        <span class="ev-daytime-info-icon">&#9728;&#65039;</span>
+                        <div class="ev-daytime-info-text">
+                            <strong>&euro;10 korting overdag</strong>
+                            <span>Kies je een tijdslot v&oacute;&oacute;r 17:00? Dan krijg je automatisch &euro;10 korting op de sessieprijs!</span>
+                        </div>
                     </div>
                 </div>
 
