@@ -14,95 +14,60 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'ECHOVISIE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'ECHOVISIE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
+/* Load admin settings page */
+if ( is_admin() ) {
+    require_once ECHOVISIE_PLUGIN_DIR . 'admin/echovisie-admin.php';
+}
+
 /* =================================================================
    BOOKLY INTEGRATION CONFIG
    =================================================================
-   Fill in the Bookly IDs after creating services, extras, and staff
-   in your Bookly admin panel (Bookly → Services, Bookly → Staff).
-
-   To find IDs: hover over items in Bookly admin, check the URL or
-   use Bookly → Services → click service → look at URL for ?id=X
+   Reads all settings from the WordPress admin page (EchoVisie menu).
+   Configure via: WP Admin → EchoVisie → Instellingen
    ================================================================= */
 
 function echovisie_bookly_config() {
+    $s = get_option( 'echovisie_settings', array() );
+
+    // Helper to read an int setting with fallback 0
+    $int = function ( $key ) use ( $s ) {
+        return isset( $s[ $key ] ) ? absint( $s[ $key ] ) : 0;
+    };
+
+    // Helper to read a string setting with fallback
+    $str = function ( $key, $default = '' ) use ( $s ) {
+        return isset( $s[ $key ] ) ? $s[ $key ] : $default;
+    };
+
     return array(
-
-        /* ----------------------------------------------------------
-           SERVICE MAPPING
-           Map each echo duration (minutes) to a Bookly Service ID.
-           Create 6 services in Bookly admin:
-             "Echo 10 min" (duration: 10, price: €20)
-             "Echo 20 min" (duration: 20, price: €35)
-             "Echo 30 min" (duration: 30, price: €50)
-             "Echo 40 min" (duration: 40, price: €65)
-             "Echo 50 min" (duration: 50, price: €80)
-             "Echo 60 min" (duration: 60, price: €95)
-           Set the evening/weekend price as the base price.
-           Use Bookly Special Hours to set daytime (€10 less).
-           ---------------------------------------------------------- */
         'services' => array(
-            10 => 0,  // ← Replace 0 with Bookly service ID for "Echo 10 min"
-            20 => 0,  // ← Replace 0 with Bookly service ID for "Echo 20 min"
-            30 => 0,  // ← Replace 0 with Bookly service ID for "Echo 30 min"
-            40 => 0,  // ← Replace 0 with Bookly service ID for "Echo 40 min"
-            50 => 0,  // ← Replace 0 with Bookly service ID for "Echo 50 min"
-            60 => 0,  // ← Replace 0 with Bookly service ID for "Echo 60 min"
+            10 => $int( 'service_10' ),
+            20 => $int( 'service_20' ),
+            30 => $int( 'service_30' ),
+            40 => $int( 'service_40' ),
+            50 => $int( 'service_50' ),
+            60 => $int( 'service_60' ),
         ),
-
-        /* ----------------------------------------------------------
-           SERVICE EXTRAS MAPPING
-           Map each EchoVisie add-on to a Bookly Service Extra ID.
-           Create these in Bookly → Service Extras and attach them
-           to all 6 echo services.
-           ---------------------------------------------------------- */
         'extras' => array(
-            'extra_small_photo' => 0,  // ← "Extra kleine foto (print)" €2/stuk
-            'extra_large_photo' => 0,  // ← "Extra grote foto (print)" €4/stuk
-            'recording'         => 0,  // ← "Volledige opname" €30 (free at 40+ min)
-            'usb'               => 0,  // ← "USB-stick (16 GB)" €10 (free at 40+ min)
-            // 'gender' is free/included, no Bookly extra needed
+            'extra_small_photo' => $int( 'extra_extra_small_photo' ),
+            'extra_large_photo' => $int( 'extra_extra_large_photo' ),
+            'recording'         => $int( 'extra_recording' ),
+            'usb'               => $int( 'extra_usb' ),
         ),
-
-        /* ----------------------------------------------------------
-           STAFF MAPPING
-           Map staff names to Bookly Staff Member IDs.
-           ---------------------------------------------------------- */
         'staff' => array(
-            'ida'      => 0,  // ← Ida Tjeerdsma → Bookly staff ID
-            'christel' => 0,  // ← Christel van den Heuvel → Bookly staff ID
-            'rianne'   => 0,  // ← Rianne Block → Bookly staff ID
+            'ida'      => $int( 'staff_ida' ),
+            'christel' => $int( 'staff_christel' ),
+            'rianne'   => $int( 'staff_rianne' ),
         ),
-
-        /* ----------------------------------------------------------
-           PACKAGE DISCOUNT COUPONS
-           Create these coupons in Bookly → Coupons:
-             PAKKET2: 10% discount, min 2 appointments
-             PAKKET3: 20% discount, min 3 appointments
-           ---------------------------------------------------------- */
         'coupons' => array(
-            2 => 'PAKKET2',  // 10% package discount
-            3 => 'PAKKET3',  // 20% package discount
+            2 => $str( 'coupon_2', 'PAKKET2' ),
+            3 => $str( 'coupon_3', 'PAKKET3' ),
         ),
-
-        /* ----------------------------------------------------------
-           CHECKOUT PAGE
-           Create a WordPress page with the slug below and add the
-           shortcode [echovisie_checkout] to it.
-           ---------------------------------------------------------- */
-        'checkout_page_slug' => 'echo-boeken',
-
-        /* ----------------------------------------------------------
-           CUSTOM FIELDS (Bookly Custom Fields)
-           Map custom field IDs for passing pregnancy info to Bookly.
-           Create these in Bookly → Custom Fields:
-             "Zwangerschapsweek bij afspraak" (text)
-             "Uitgerekende datum" (text)
-             "Opmerkingen" (textarea)
-           ---------------------------------------------------------- */
+        'checkout_page_slug' => $str( 'checkout_page_slug', 'echo-boeken' ),
         'custom_fields' => array(
-            'pregnancy_week' => 0,  // ← Bookly custom field ID
-            'due_date'       => 0,  // ← Bookly custom field ID
-            'notes'          => 0,  // ← Bookly custom field ID
+            'pregnancy_week' => $int( 'cf_pregnancy_week' ),
+            'due_date'       => $int( 'cf_due_date' ),
+            'notes'          => $int( 'cf_notes' ),
         ),
     );
 }
@@ -508,8 +473,8 @@ function echovisie_checkout_shortcode() {
                 <?php elseif ( $apt['service_id'] === 0 ) : ?>
                 <div class="ev-preg-error" style="margin-top:.8rem;">
                     <strong>Let op:</strong> De Bookly-koppeling is nog niet geconfigureerd.
-                    Stel de service-ID's in via <code>echovisie_bookly_config()</code> in
-                    <code>echovisie-booking.php</code>.
+                    Ga naar <a href="<?php echo esc_url( admin_url( 'admin.php?page=echovisie-settings' ) ); ?>">EchoVisie Instellingen</a>
+                    en vul de Bookly Service-ID's in.
                 </div>
                 <?php endif; ?>
             </div>
