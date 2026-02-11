@@ -211,13 +211,17 @@
     /* =========================================================
        INCLUDED FEATURES – ordered by unlock duration
        ========================================================= */
+    function qty(n) {
+        return '<span class="ev-inc-qty">' + n + '</span>';
+    }
+
     function buildIncludedCards(duration) {
         return [
             // 10 min
             {
                 icon: '\uD83D\uDCF7',
                 name: 'Digitale 2D-beelden',
-                detail: included2D(duration) + ' beelden inbegrepen',
+                detail: qty(included2D(duration)) + ' beelden inbegrepen',
                 free: true,
                 unlockAt: 10
             },
@@ -226,7 +230,7 @@
                 icon: '\uD83D\uDDBC\uFE0F',
                 name: 'Kleine foto\'s (print)',
                 detail: freeSmallPhotos(duration) > 0
-                    ? freeSmallPhotos(duration) + ' stuks inbegrepen'
+                    ? qty(freeSmallPhotos(duration)) + ' stuks inbegrepen'
                     : 'Beschikbaar als extra (\u20AC2/stuk)',
                 free: freeSmallPhotos(duration) > 0,
                 unlockAt: 20
@@ -235,7 +239,7 @@
                 icon: '\uD83D\uDDBC\uFE0F',
                 name: 'Grote foto (print)',
                 detail: freeLargePhotos(duration) > 0
-                    ? '1 stuk inbegrepen'
+                    ? qty(1) + ' stuk inbegrepen'
                     : 'Beschikbaar als extra (\u20AC4/stuk)',
                 free: freeLargePhotos(duration) > 0,
                 unlockAt: 20
@@ -251,7 +255,7 @@
                 icon: '\uD83E\uDD30',
                 name: 'Digitale 3D-beelden',
                 detail: included3D(duration) > 0
-                    ? included3D(duration) + ' beelden inbegrepen'
+                    ? qty(included3D(duration)) + ' beelden inbegrepen'
                     : 'Ontgrendeld bij 20 min',
                 free: included3D(duration) > 0,
                 unlockAt: 20
@@ -261,7 +265,7 @@
                 icon: '\uD83C\uDFAC',
                 name: '4D-video\'s',
                 detail: included4D(duration) > 0
-                    ? included4D(duration) + ' video(s) inbegrepen'
+                    ? qty(included4D(duration)) + ' video(s) inbegrepen'
                     : 'Ontgrendeld bij 30 min',
                 free: included4D(duration) > 0,
                 unlockAt: 30
@@ -670,6 +674,10 @@
                 renderAll();
             } else if (e.target.closest('.ev-qty-plus')) {
                 state.addons[id].qty = Math.min(maxQty, state.addons[id].qty + 1);
+                renderAll();
+            } else if (!e.target.closest('.ev-qty-stepper')) {
+                // Clicking the row (outside stepper) toggles between 0 and 1
+                state.addons[id].qty = state.addons[id].qty > 0 ? 0 : 1;
                 renderAll();
             }
         });

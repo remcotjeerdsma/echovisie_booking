@@ -2,16 +2,16 @@
    EchoVisie Booking Widget – Stylesheet
    ===================================================== */
 
-/* ---------- Reset & container ---------- */
-.ev-booking *,
-.ev-booking *::before,
-.ev-booking *::after {
+/* ---------- Reset & wrapper layout ---------- */
+.ev-booking-wrapper *,
+.ev-booking-wrapper *::before,
+.ev-booking-wrapper *::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
 }
 
-.ev-booking {
+.ev-booking-wrapper {
     --ev-primary: #F7941D;
     --ev-primary-dark: #D97B06;
     --ev-primary-light: #FFF3E0;
@@ -27,13 +27,42 @@
 
     font-family: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif;
     color: var(--ev-text);
+
+    display: flex;
+    gap: 1.5rem;
+    max-width: 1020px;
+    margin: 2rem auto;
+    align-items: flex-start;
+}
+
+/* ---------- Main form column ---------- */
+.ev-booking {
+    flex: 1;
+    min-width: 0;
     background: var(--ev-bg);
     border-radius: var(--ev-radius);
-    max-width: 680px;
-    margin: 2rem auto;
-    padding: 0;
     overflow: hidden;
     box-shadow: var(--ev-shadow);
+}
+
+/* ---------- Sidebar ---------- */
+.ev-sidebar {
+    width: 300px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 1.5rem;
+}
+.ev-sidebar-inner {
+    background: var(--ev-bg);
+    border-radius: var(--ev-radius);
+    box-shadow: var(--ev-shadow);
+    padding: 1.3rem;
+}
+.ev-sidebar-title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: .9rem;
+    color: var(--ev-primary-dark);
 }
 
 /* ---------- Header ---------- */
@@ -211,6 +240,11 @@
     font-size: .78rem;
     color: var(--ev-text-muted);
 }
+.ev-inc-qty {
+    font-size: .92rem;
+    font-weight: 700;
+    color: var(--ev-primary-dark);
+}
 .ev-included-card .ev-inc-badge {
     display: inline-block;
     margin-top: .3rem;
@@ -265,6 +299,8 @@
     transition: background .2s, border-color .2s;
     font-size: .8rem;
     color: #fff;
+    align-self: flex-start;
+    margin-top: 2px;
 }
 .ev-addon-row.selected .ev-addon-check {
     background: var(--ev-primary-dark);
@@ -275,12 +311,15 @@
     min-width: 0;
 }
 .ev-addon-row .ev-addon-name {
+    display: block;
     font-weight: 600;
     font-size: .88rem;
 }
 .ev-addon-row .ev-addon-desc {
+    display: block;
     font-size: .77rem;
     color: var(--ev-text-muted);
+    margin-top: .15rem;
 }
 .ev-addon-row .ev-addon-price {
     font-weight: 700;
@@ -344,13 +383,15 @@
     flex-direction: column;
     align-items: center;
     gap: .2rem;
-    padding: .85rem .5rem;
+    padding: .85rem .5rem .7rem;
     border: 2px solid var(--ev-border);
     border-radius: var(--ev-radius);
     background: var(--ev-card);
     cursor: pointer;
     transition: border-color .2s, background .2s, transform .15s;
     font-family: inherit;
+    position: relative;
+    overflow: hidden;
 }
 .ev-package-btn:hover {
     border-color: var(--ev-primary);
@@ -369,6 +410,16 @@
     font-size: .78rem;
     color: var(--ev-text-muted);
     font-weight: 500;
+}
+.ev-package-discount {
+    display: inline-block;
+    margin-top: .3rem;
+    padding: .15rem .55rem;
+    border-radius: 20px;
+    font-size: .72rem;
+    font-weight: 700;
+    background: var(--ev-success);
+    color: #fff;
 }
 
 /* ---------- Pregnancy helper ---------- */
@@ -568,17 +619,19 @@
     border-color: var(--ev-primary);
 }
 
-/* ---------- Price summary ---------- */
+/* ---------- Price summary (sidebar) ---------- */
 .ev-summary {
     display: flex;
     flex-direction: column;
     gap: .35rem;
     margin-bottom: 1rem;
+    padding-bottom: .8rem;
+    border-bottom: 1px solid var(--ev-border);
 }
 .ev-summary-row {
     display: flex;
     justify-content: space-between;
-    font-size: .88rem;
+    font-size: .84rem;
 }
 .ev-summary-row.discount {
     color: var(--ev-success);
@@ -590,27 +643,27 @@
     align-items: center;
     background: linear-gradient(135deg, var(--ev-primary), var(--ev-primary-dark));
     color: #fff;
-    padding: 1rem 1.2rem;
+    padding: .85rem 1rem;
     border-radius: 10px;
-    margin-bottom: 1rem;
+    margin-bottom: .8rem;
 }
 .ev-total-label {
-    font-size: 1rem;
+    font-size: .95rem;
     font-weight: 600;
 }
 .ev-total-amount {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     font-weight: 800;
 }
 .ev-book-btn {
     display: block;
     width: 100%;
-    padding: 1rem;
+    padding: .9rem;
     border: none;
     border-radius: 10px;
     background: var(--ev-primary-dark);
     color: #fff;
-    font-size: 1.05rem;
+    font-size: 1rem;
     font-weight: 700;
     cursor: pointer;
     transition: background .2s, transform .15s;
@@ -626,9 +679,20 @@
 }
 
 /* ---------- Responsive ---------- */
+@media (max-width: 860px) {
+    .ev-booking-wrapper {
+        flex-direction: column;
+        margin: 1rem;
+    }
+    .ev-sidebar {
+        width: 100%;
+        position: static;
+    }
+}
 @media (max-width: 520px) {
-    .ev-booking {
-        margin: 1rem .5rem;
+    .ev-booking-wrapper {
+        margin: .5rem;
+        gap: 1rem;
     }
     .ev-section {
         padding: 1.1rem 1rem;

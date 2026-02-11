@@ -49,113 +49,120 @@ add_action( 'wp_enqueue_scripts', 'echovisie_enqueue_assets' );
 function echovisie_booking_shortcode() {
     ob_start();
     ?>
-    <div id="echovisie-booking" class="ev-booking">
+    <div class="ev-booking-wrapper">
+        <div id="echovisie-booking" class="ev-booking">
 
-        <!-- Header -->
-        <div class="ev-header">
-            <h2 class="ev-title">Stel jouw echo samen</h2>
-            <p class="ev-subtitle">Verschuif de slider om de duur te kiezen en ontgrendel extra's</p>
-        </div>
+            <!-- Header -->
+            <div class="ev-header">
+                <h2 class="ev-title">Stel jouw echo samen</h2>
+                <p class="ev-subtitle">Verschuif de slider om de duur te kiezen en ontgrendel extra's</p>
+            </div>
 
-        <!-- Duration slider -->
-        <div class="ev-section ev-duration-section">
-            <label class="ev-label" for="ev-duration-slider">Duur van de echo</label>
-            <div class="ev-slider-wrap">
-                <input type="range" id="ev-duration-slider" min="10" max="60" step="10" value="10">
-                <div class="ev-slider-labels" aria-hidden="true">
-                    <span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span>
+            <!-- Duration slider -->
+            <div class="ev-section ev-duration-section">
+                <label class="ev-label" for="ev-duration-slider">Duur van de echo</label>
+                <div class="ev-slider-wrap">
+                    <input type="range" id="ev-duration-slider" min="10" max="60" step="10" value="10">
+                    <div class="ev-slider-labels" aria-hidden="true">
+                        <span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span>
+                    </div>
+                </div>
+                <div class="ev-duration-display"><span id="ev-duration-value">10</span> minuten</div>
+            </div>
+
+            <!-- Time-of-day selector -->
+            <div class="ev-section ev-time-section">
+                <label class="ev-label">Tijdstip</label>
+                <div class="ev-toggle-group">
+                    <button type="button" class="ev-toggle active" data-time="working">
+                        <span class="ev-toggle-icon">&#9728;&#65039;</span>
+                        Overdag
+                        <span class="ev-toggle-discount">&euro;10 korting!</span>
+                    </button>
+                    <button type="button" class="ev-toggle" data-time="evening">
+                        <span class="ev-toggle-icon">&#9790;</span>
+                        Avond / Weekend
+                        <span class="ev-toggle-price">standaardtarief</span>
+                    </button>
                 </div>
             </div>
-            <div class="ev-duration-display"><span id="ev-duration-value">10</span> minuten</div>
+
+            <!-- Included features -->
+            <div class="ev-section ev-included-section">
+                <h3 class="ev-section-title">Inbegrepen bij jouw keuze</h3>
+                <div class="ev-included-grid" id="ev-included-grid">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Optional add-ons -->
+            <div class="ev-section ev-addons-section">
+                <h3 class="ev-section-title">Extra opties</h3>
+                <div class="ev-addons-list" id="ev-addons-list">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Package discount -->
+            <div class="ev-section ev-package-section">
+                <h3 class="ev-section-title">Afsprakenpakket</h3>
+                <p class="ev-package-hint">Boek meerdere afspraken tegelijk en bespaar!</p>
+                <div class="ev-package-options">
+                    <button type="button" class="ev-package-btn active" data-qty="1">
+                        <span class="ev-package-qty">1</span>
+                        <span class="ev-package-label">Enkele afspraak</span>
+                    </button>
+                    <button type="button" class="ev-package-btn" data-qty="2">
+                        <span class="ev-package-qty">2</span>
+                        <span class="ev-package-label">Afspraken</span>
+                        <span class="ev-package-discount">&minus;10%</span>
+                    </button>
+                    <button type="button" class="ev-package-btn" data-qty="3">
+                        <span class="ev-package-qty">3</span>
+                        <span class="ev-package-label">Afspraken</span>
+                        <span class="ev-package-discount">&minus;20%</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pregnancy helper -->
+            <div class="ev-section ev-preg-section">
+                <h3 class="ev-section-title">Wanneer ben je uitgerekend?</h3>
+                <p class="ev-preg-subtitle">Vul je datum in zodat we de ideale momenten voor je echo's kunnen berekenen</p>
+                <div class="ev-preg-toggle-group">
+                    <button type="button" class="ev-preg-toggle" data-preg-type="due">Ik weet mijn uitgerekende datum</button>
+                    <button type="button" class="ev-preg-toggle" data-preg-type="lmp">Ik weet de eerste dag van mijn laatste menstruatie</button>
+                </div>
+                <div id="ev-preg-date-wrapper" class="ev-preg-date-wrapper" style="display:none">
+                    <input type="date" id="ev-preg-date-input" class="ev-preg-date-input">
+                </div>
+                <div id="ev-preg-info"></div>
+            </div>
+
+            <!-- Appointment dates -->
+            <div class="ev-section ev-dates-section">
+                <h3 class="ev-section-title">Kies je afspraakdatum</h3>
+                <div id="ev-dates-container" class="ev-dates-container">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
         </div>
 
-        <!-- Time-of-day selector -->
-        <div class="ev-section ev-time-section">
-            <label class="ev-label">Tijdstip</label>
-            <div class="ev-toggle-group">
-                <button type="button" class="ev-toggle active" data-time="working">
-                    <span class="ev-toggle-icon">&#9728;&#65039;</span>
-                    Overdag
-                    <span class="ev-toggle-discount">&euro;10 korting!</span>
-                </button>
-                <button type="button" class="ev-toggle" data-time="evening">
-                    <span class="ev-toggle-icon">&#9790;</span>
-                    Avond / Weekend
-                    <span class="ev-toggle-price">standaardtarief</span>
-                </button>
+        <!-- Sticky price sidebar -->
+        <div class="ev-sidebar">
+            <div class="ev-sidebar-inner">
+                <h3 class="ev-sidebar-title">Prijsoverzicht</h3>
+                <div class="ev-summary" id="ev-summary">
+                    <!-- Populated by JS -->
+                </div>
+                <div class="ev-total-bar">
+                    <span class="ev-total-label">Totaal</span>
+                    <span class="ev-total-amount" id="ev-total-amount">&euro;10,00</span>
+                </div>
+                <button type="button" class="ev-book-btn" id="ev-book-btn">Afspraak boeken</button>
             </div>
         </div>
-
-        <!-- Included features -->
-        <div class="ev-section ev-included-section">
-            <h3 class="ev-section-title">Inbegrepen bij jouw keuze</h3>
-            <div class="ev-included-grid" id="ev-included-grid">
-                <!-- Populated by JS -->
-            </div>
-        </div>
-
-        <!-- Optional add-ons -->
-        <div class="ev-section ev-addons-section">
-            <h3 class="ev-section-title">Extra opties</h3>
-            <div class="ev-addons-list" id="ev-addons-list">
-                <!-- Populated by JS -->
-            </div>
-        </div>
-
-        <!-- Package discount -->
-        <div class="ev-section ev-package-section">
-            <h3 class="ev-section-title">Afsprakenpakket</h3>
-            <p class="ev-package-hint">Boek meerdere afspraken tegelijk en bespaar!</p>
-            <div class="ev-package-options">
-                <button type="button" class="ev-package-btn active" data-qty="1">
-                    <span class="ev-package-qty">1</span>
-                    <span class="ev-package-label">Enkele afspraak</span>
-                </button>
-                <button type="button" class="ev-package-btn" data-qty="2">
-                    <span class="ev-package-qty">2</span>
-                    <span class="ev-package-label">10% korting</span>
-                </button>
-                <button type="button" class="ev-package-btn" data-qty="3">
-                    <span class="ev-package-qty">3</span>
-                    <span class="ev-package-label">20% korting</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Pregnancy helper -->
-        <div class="ev-section ev-preg-section">
-            <h3 class="ev-section-title">Wanneer ben je uitgerekend?</h3>
-            <p class="ev-preg-subtitle">Vul je datum in zodat we de ideale momenten voor je echo's kunnen berekenen</p>
-            <div class="ev-preg-toggle-group">
-                <button type="button" class="ev-preg-toggle" data-preg-type="due">Ik weet mijn uitgerekende datum</button>
-                <button type="button" class="ev-preg-toggle" data-preg-type="lmp">Ik weet de eerste dag van mijn laatste menstruatie</button>
-            </div>
-            <div id="ev-preg-date-wrapper" class="ev-preg-date-wrapper" style="display:none">
-                <input type="date" id="ev-preg-date-input" class="ev-preg-date-input">
-            </div>
-            <div id="ev-preg-info"></div>
-        </div>
-
-        <!-- Appointment dates -->
-        <div class="ev-section ev-dates-section">
-            <h3 class="ev-section-title">Kies je afspraakdatum</h3>
-            <div id="ev-dates-container" class="ev-dates-container">
-                <!-- Populated by JS -->
-            </div>
-        </div>
-
-        <!-- Price summary -->
-        <div class="ev-section ev-summary-section">
-            <div class="ev-summary" id="ev-summary">
-                <!-- Populated by JS -->
-            </div>
-            <div class="ev-total-bar">
-                <span class="ev-total-label">Totaal</span>
-                <span class="ev-total-amount" id="ev-total-amount">&euro;10,00</span>
-            </div>
-            <button type="button" class="ev-book-btn" id="ev-book-btn">Afspraak boeken</button>
-        </div>
-
     </div>
     <?php
     return ob_get_clean();
