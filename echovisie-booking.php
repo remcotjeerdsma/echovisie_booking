@@ -68,14 +68,14 @@ function echovisie_booking_shortcode() {
             <label class="ev-label">Tijdstip</label>
             <div class="ev-toggle-group">
                 <button type="button" class="ev-toggle active" data-time="working">
-                    <span class="ev-toggle-icon">&#9728;</span>
-                    Werkuren
-                    <span class="ev-toggle-price">startkosten €10</span>
+                    <span class="ev-toggle-icon">&#9728;&#65039;</span>
+                    Overdag
+                    <span class="ev-toggle-discount">&euro;10 korting!</span>
                 </button>
                 <button type="button" class="ev-toggle" data-time="evening">
                     <span class="ev-toggle-icon">&#9790;</span>
                     Avond / Weekend
-                    <span class="ev-toggle-price">startkosten €20</span>
+                    <span class="ev-toggle-price">standaardtarief</span>
                 </button>
             </div>
         </div>
@@ -113,6 +113,28 @@ function echovisie_booking_shortcode() {
                     <span class="ev-package-qty">3</span>
                     <span class="ev-package-label">20% korting</span>
                 </button>
+            </div>
+        </div>
+
+        <!-- Pregnancy helper -->
+        <div class="ev-section ev-preg-section">
+            <h3 class="ev-section-title">Wanneer ben je uitgerekend?</h3>
+            <p class="ev-preg-subtitle">Vul je datum in zodat we de ideale momenten voor je echo's kunnen berekenen</p>
+            <div class="ev-preg-toggle-group">
+                <button type="button" class="ev-preg-toggle" data-preg-type="due">Ik weet mijn uitgerekende datum</button>
+                <button type="button" class="ev-preg-toggle" data-preg-type="lmp">Ik weet de eerste dag van mijn laatste menstruatie</button>
+            </div>
+            <div id="ev-preg-date-wrapper" class="ev-preg-date-wrapper" style="display:none">
+                <input type="date" id="ev-preg-date-input" class="ev-preg-date-input">
+            </div>
+            <div id="ev-preg-info"></div>
+        </div>
+
+        <!-- Appointment dates -->
+        <div class="ev-section ev-dates-section">
+            <h3 class="ev-section-title">Kies je afspraakdatum</h3>
+            <div id="ev-dates-container" class="ev-dates-container">
+                <!-- Populated by JS -->
             </div>
         </div>
 

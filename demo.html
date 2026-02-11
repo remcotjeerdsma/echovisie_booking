@@ -12,435 +12,121 @@
             min-height: 100vh;
         }
 
-        /* =====================================================
-           EchoVisie Booking Widget – Stylesheet
-           ===================================================== */
-
-        .ev-booking *,
-        .ev-booking *::before,
-        .ev-booking *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
+        /* === EchoVisie Booking Widget – Stylesheet === */
+        .ev-booking *, .ev-booking *::before, .ev-booking *::after { box-sizing: border-box; margin: 0; padding: 0; }
         .ev-booking {
-            --ev-primary: #c084b0;
-            --ev-primary-dark: #9b5d87;
-            --ev-primary-light: #f3e5f5;
-            --ev-accent: #f8bbd0;
-            --ev-bg: #fefafc;
-            --ev-card: #ffffff;
-            --ev-text: #3e2a47;
-            --ev-text-muted: #8a7190;
-            --ev-border: #ecdfe8;
-            --ev-success: #66bb6a;
-            --ev-radius: 14px;
-            --ev-shadow: 0 4px 24px rgba(155, 93, 135, .10);
-
+            --ev-primary: #c084b0; --ev-primary-dark: #9b5d87; --ev-primary-light: #f3e5f5;
+            --ev-accent: #f8bbd0; --ev-bg: #fefafc; --ev-card: #ffffff;
+            --ev-text: #3e2a47; --ev-text-muted: #8a7190; --ev-border: #ecdfe8;
+            --ev-success: #66bb6a; --ev-radius: 14px; --ev-shadow: 0 4px 24px rgba(155,93,135,.10);
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            color: var(--ev-text);
-            background: var(--ev-bg);
-            border-radius: var(--ev-radius);
-            max-width: 680px;
-            margin: 0 auto;
-            padding: 0;
-            overflow: hidden;
-            box-shadow: var(--ev-shadow);
+            color: var(--ev-text); background: var(--ev-bg); border-radius: var(--ev-radius);
+            max-width: 680px; margin: 0 auto; padding: 0; overflow: hidden; box-shadow: var(--ev-shadow);
         }
+        .ev-header { background: linear-gradient(135deg, var(--ev-primary), var(--ev-primary-dark)); color: #fff; text-align: center; padding: 2rem 1.5rem 1.6rem; }
+        .ev-title { font-size: 1.55rem; font-weight: 700; letter-spacing: .02em; margin-bottom: .35rem; }
+        .ev-subtitle { font-size: .92rem; opacity: .88; font-weight: 400; }
+        .ev-section { padding: 1.4rem 1.5rem; border-bottom: 1px solid var(--ev-border); }
+        .ev-section:last-child { border-bottom: none; }
+        .ev-section-title { font-size: 1.05rem; font-weight: 600; margin-bottom: .85rem; color: var(--ev-primary-dark); }
+        .ev-label { display: block; font-weight: 600; margin-bottom: .6rem; font-size: .95rem; }
+        .ev-slider-wrap { position: relative; padding: 0 4px; }
+        #ev-duration-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--ev-accent), var(--ev-primary)); outline: none; cursor: pointer; }
+        #ev-duration-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 28px; height: 28px; border-radius: 50%; background: var(--ev-primary-dark); border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.18); cursor: grab; transition: transform .15s; }
+        #ev-duration-slider::-webkit-slider-thumb:active { transform: scale(1.15); cursor: grabbing; }
+        #ev-duration-slider::-moz-range-thumb { width: 28px; height: 28px; border-radius: 50%; background: var(--ev-primary-dark); border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.18); cursor: grab; }
+        .ev-slider-labels { display: flex; justify-content: space-between; margin-top: .45rem; font-size: .78rem; color: var(--ev-text-muted); padding: 0 2px; }
+        .ev-duration-display { text-align: center; margin-top: .7rem; font-size: 1.45rem; font-weight: 700; color: var(--ev-primary-dark); }
+        .ev-toggle-group { display: flex; gap: .7rem; }
+        .ev-toggle { flex: 1; display: flex; flex-direction: column; align-items: center; gap: .25rem; padding: .85rem .5rem; border: 2px solid var(--ev-border); border-radius: var(--ev-radius); background: var(--ev-card); cursor: pointer; font-size: .88rem; font-weight: 500; color: var(--ev-text); transition: border-color .2s, background .2s, transform .15s; font-family: inherit; line-height: 1.35; }
+        .ev-toggle:hover { border-color: var(--ev-primary); }
+        .ev-toggle.active { border-color: var(--ev-primary-dark); background: var(--ev-primary-light); }
+        .ev-toggle-icon { font-size: 1.35rem; }
+        .ev-toggle-price { font-size: .75rem; color: var(--ev-text-muted); }
+        .ev-toggle-discount { font-size: .72rem; font-weight: 700; color: var(--ev-success); }
+        .ev-included-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: .7rem; }
+        .ev-included-card { background: var(--ev-card); border: 1px solid var(--ev-border); border-radius: 10px; padding: .75rem .85rem; display: flex; flex-direction: column; gap: .2rem; transition: opacity .3s, border-color .3s; }
+        .ev-included-card.locked { opacity: .4; border-style: dashed; }
+        .ev-included-card .ev-inc-icon { font-size: 1.3rem; margin-bottom: .15rem; }
+        .ev-included-card .ev-inc-name { font-weight: 600; font-size: .85rem; line-height: 1.3; }
+        .ev-included-card .ev-inc-detail { font-size: .78rem; color: var(--ev-text-muted); }
+        .ev-included-card .ev-inc-badge { display: inline-block; margin-top: .3rem; font-size: .7rem; font-weight: 600; padding: .15rem .5rem; border-radius: 20px; width: fit-content; }
+        .ev-inc-badge.free { background: #e8f5e9; color: #2e7d32; }
+        .ev-inc-badge.unlock { background: #fff3e0; color: #e65100; }
+        .ev-addons-list { display: flex; flex-direction: column; gap: .6rem; }
+        .ev-addon-row { display: flex; align-items: center; gap: .75rem; background: var(--ev-card); border: 1px solid var(--ev-border); border-radius: 10px; padding: .7rem .85rem; transition: border-color .2s, opacity .3s; cursor: pointer; }
+        .ev-addon-row:hover { border-color: var(--ev-primary); }
+        .ev-addon-row.disabled { opacity: .38; pointer-events: none; }
+        .ev-addon-row .ev-addon-check { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--ev-border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .2s, border-color .2s; font-size: .8rem; color: #fff; }
+        .ev-addon-row.selected .ev-addon-check { background: var(--ev-primary-dark); border-color: var(--ev-primary-dark); }
+        .ev-addon-row .ev-addon-info { flex: 1; min-width: 0; }
+        .ev-addon-row .ev-addon-name { font-weight: 600; font-size: .88rem; }
+        .ev-addon-row .ev-addon-desc { font-size: .77rem; color: var(--ev-text-muted); }
+        .ev-addon-row .ev-addon-price { font-weight: 700; font-size: .92rem; white-space: nowrap; color: var(--ev-primary-dark); }
+        .ev-addon-row .ev-addon-price.is-free { color: var(--ev-success); }
+        .ev-addon-row .ev-qty-stepper { display: flex; align-items: center; gap: .35rem; margin-left: auto; }
+        .ev-qty-stepper button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--ev-border); background: var(--ev-card); font-size: .95rem; font-weight: 700; line-height: 1; cursor: pointer; color: var(--ev-text); display: flex; align-items: center; justify-content: center; transition: border-color .2s, background .2s; font-family: inherit; padding: 0; }
+        .ev-qty-stepper button:hover { border-color: var(--ev-primary); background: var(--ev-primary-light); }
+        .ev-qty-stepper .ev-qty-val { min-width: 22px; text-align: center; font-weight: 700; font-size: .9rem; }
+        .ev-package-hint { font-size: .85rem; color: var(--ev-text-muted); margin-bottom: .75rem; }
+        .ev-package-options { display: flex; gap: .7rem; }
+        .ev-package-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: .2rem; padding: .85rem .5rem; border: 2px solid var(--ev-border); border-radius: var(--ev-radius); background: var(--ev-card); cursor: pointer; transition: border-color .2s, background .2s, transform .15s; font-family: inherit; }
+        .ev-package-btn:hover { border-color: var(--ev-primary); transform: translateY(-2px); }
+        .ev-package-btn.active { border-color: var(--ev-primary-dark); background: var(--ev-primary-light); }
+        .ev-package-qty { font-size: 1.35rem; font-weight: 800; color: var(--ev-primary-dark); }
+        .ev-package-label { font-size: .78rem; color: var(--ev-text-muted); font-weight: 500; }
 
-        .ev-header {
-            background: linear-gradient(135deg, var(--ev-primary), var(--ev-primary-dark));
-            color: #fff;
-            text-align: center;
-            padding: 2rem 1.5rem 1.6rem;
-        }
-        .ev-title {
-            font-size: 1.55rem;
-            font-weight: 700;
-            letter-spacing: .02em;
-            margin-bottom: .35rem;
-        }
-        .ev-subtitle {
-            font-size: .92rem;
-            opacity: .88;
-            font-weight: 400;
-        }
+        /* Pregnancy helper */
+        .ev-preg-subtitle { font-size: .85rem; color: var(--ev-text-muted); margin-bottom: .75rem; }
+        .ev-preg-toggle-group { display: flex; gap: .6rem; margin-bottom: .8rem; }
+        .ev-preg-toggle { flex: 1; padding: .7rem .6rem; border: 2px solid var(--ev-border); border-radius: 10px; background: var(--ev-card); cursor: pointer; font-size: .84rem; font-weight: 500; color: var(--ev-text); text-align: center; transition: border-color .2s, background .2s; font-family: inherit; line-height: 1.3; }
+        .ev-preg-toggle:hover { border-color: var(--ev-primary); }
+        .ev-preg-toggle.active { border-color: var(--ev-primary-dark); background: var(--ev-primary-light); }
+        .ev-preg-date-wrapper { margin-bottom: .8rem; }
+        .ev-preg-date-input { width: 100%; padding: .65rem .8rem; border: 2px solid var(--ev-border); border-radius: 10px; font-size: .9rem; font-family: inherit; color: var(--ev-text); background: var(--ev-card); outline: none; transition: border-color .2s; }
+        .ev-preg-date-input:focus { border-color: var(--ev-primary); }
+        .ev-preg-week-display { font-size: .92rem; margin-bottom: .8rem; padding: .6rem .8rem; background: var(--ev-primary-light); border-radius: 10px; line-height: 1.5; }
+        .ev-preg-weeks-left { color: var(--ev-text-muted); font-size: .82rem; }
+        .ev-milestone-timeline { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: .6rem; }
+        .ev-milestone-card { background: var(--ev-card); border: 1px solid var(--ev-border); border-radius: 10px; padding: .7rem .8rem; display: flex; flex-direction: column; gap: .15rem; transition: border-color .3s, opacity .3s; }
+        .ev-milestone-card .ev-ms-icon { font-size: 1.2rem; }
+        .ev-milestone-card .ev-ms-name { font-weight: 600; font-size: .84rem; }
+        .ev-milestone-card .ev-ms-weeks { font-size: .75rem; color: var(--ev-text-muted); }
+        .ev-milestone-card .ev-ms-dates { font-size: .72rem; color: var(--ev-text-muted); }
+        .ev-milestone-card .ev-ms-status { font-size: .78rem; font-weight: 600; margin-top: .2rem; }
+        .ev-ms-past { opacity: .5; border-style: dashed; }
+        .ev-ms-past .ev-ms-status { color: var(--ev-text-muted); }
+        .ev-ms-current { border-color: var(--ev-success); background: #f0faf0; }
+        .ev-ms-current .ev-ms-status { color: #2e7d32; }
+        .ev-ms-future .ev-ms-status { color: var(--ev-primary-dark); }
 
-        .ev-section {
-            padding: 1.4rem 1.5rem;
-            border-bottom: 1px solid var(--ev-border);
-        }
-        .ev-section:last-child {
-            border-bottom: none;
-        }
-        .ev-section-title {
-            font-size: 1.05rem;
-            font-weight: 600;
-            margin-bottom: .85rem;
-            color: var(--ev-primary-dark);
-        }
-        .ev-label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: .6rem;
-            font-size: .95rem;
-        }
+        /* Date pickers */
+        .ev-dates-container { display: flex; flex-direction: column; gap: 1rem; }
+        .ev-date-group { display: flex; flex-direction: column; gap: .4rem; }
+        .ev-date-label { font-weight: 600; font-size: .92rem; }
+        .ev-date-suggestion { font-size: .82rem; color: var(--ev-text-muted); background: #faf5ed; border: 1px solid #ece0cc; border-radius: 8px; padding: .5rem .7rem; line-height: 1.45; display: flex; align-items: flex-start; gap: .4rem; }
+        .ev-date-sug-icon { font-size: 1rem; flex-shrink: 0; }
+        .ev-date-sug-range { color: #a88a5f; font-size: .75rem; }
+        .ev-date-input { width: 100%; padding: .65rem .8rem; border: 2px solid var(--ev-border); border-radius: 10px; font-size: .9rem; font-family: inherit; color: var(--ev-text); background: var(--ev-card); outline: none; transition: border-color .2s; }
+        .ev-date-input:focus { border-color: var(--ev-primary); }
 
-        .ev-slider-wrap {
-            position: relative;
-            padding: 0 4px;
-        }
-
-        #ev-duration-slider {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 100%;
-            height: 8px;
-            border-radius: 4px;
-            background: linear-gradient(90deg, var(--ev-accent), var(--ev-primary));
-            outline: none;
-            cursor: pointer;
-        }
-        #ev-duration-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: var(--ev-primary-dark);
-            border: 3px solid #fff;
-            box-shadow: 0 2px 8px rgba(0,0,0,.18);
-            cursor: grab;
-            transition: transform .15s;
-        }
-        #ev-duration-slider::-webkit-slider-thumb:active {
-            transform: scale(1.15);
-            cursor: grabbing;
-        }
-        #ev-duration-slider::-moz-range-thumb {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: var(--ev-primary-dark);
-            border: 3px solid #fff;
-            box-shadow: 0 2px 8px rgba(0,0,0,.18);
-            cursor: grab;
-        }
-
-        .ev-slider-labels {
-            display: flex;
-            justify-content: space-between;
-            margin-top: .45rem;
-            font-size: .78rem;
-            color: var(--ev-text-muted);
-            padding: 0 2px;
-        }
-
-        .ev-duration-display {
-            text-align: center;
-            margin-top: .7rem;
-            font-size: 1.45rem;
-            font-weight: 700;
-            color: var(--ev-primary-dark);
-        }
-
-        .ev-toggle-group {
-            display: flex;
-            gap: .7rem;
-        }
-        .ev-toggle {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: .25rem;
-            padding: .85rem .5rem;
-            border: 2px solid var(--ev-border);
-            border-radius: var(--ev-radius);
-            background: var(--ev-card);
-            cursor: pointer;
-            font-size: .88rem;
-            font-weight: 500;
-            color: var(--ev-text);
-            transition: border-color .2s, background .2s, transform .15s;
-            font-family: inherit;
-            line-height: 1.35;
-        }
-        .ev-toggle:hover {
-            border-color: var(--ev-primary);
-        }
-        .ev-toggle.active {
-            border-color: var(--ev-primary-dark);
-            background: var(--ev-primary-light);
-        }
-        .ev-toggle-icon {
-            font-size: 1.35rem;
-        }
-        .ev-toggle-price {
-            font-size: .75rem;
-            color: var(--ev-text-muted);
-        }
-
-        .ev-included-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
-            gap: .7rem;
-        }
-        .ev-included-card {
-            background: var(--ev-card);
-            border: 1px solid var(--ev-border);
-            border-radius: 10px;
-            padding: .75rem .85rem;
-            display: flex;
-            flex-direction: column;
-            gap: .2rem;
-            transition: opacity .3s, border-color .3s;
-        }
-        .ev-included-card.locked {
-            opacity: .4;
-            border-style: dashed;
-        }
-        .ev-included-card .ev-inc-icon {
-            font-size: 1.3rem;
-            margin-bottom: .15rem;
-        }
-        .ev-included-card .ev-inc-name {
-            font-weight: 600;
-            font-size: .85rem;
-            line-height: 1.3;
-        }
-        .ev-included-card .ev-inc-detail {
-            font-size: .78rem;
-            color: var(--ev-text-muted);
-        }
-        .ev-included-card .ev-inc-badge {
-            display: inline-block;
-            margin-top: .3rem;
-            font-size: .7rem;
-            font-weight: 600;
-            padding: .15rem .5rem;
-            border-radius: 20px;
-            width: fit-content;
-        }
-        .ev-inc-badge.free {
-            background: #e8f5e9;
-            color: #2e7d32;
-        }
-        .ev-inc-badge.unlock {
-            background: #fff3e0;
-            color: #e65100;
-        }
-
-        .ev-addons-list {
-            display: flex;
-            flex-direction: column;
-            gap: .6rem;
-        }
-        .ev-addon-row {
-            display: flex;
-            align-items: center;
-            gap: .75rem;
-            background: var(--ev-card);
-            border: 1px solid var(--ev-border);
-            border-radius: 10px;
-            padding: .7rem .85rem;
-            transition: border-color .2s, opacity .3s;
-            cursor: pointer;
-        }
-        .ev-addon-row:hover {
-            border-color: var(--ev-primary);
-        }
-        .ev-addon-row.disabled {
-            opacity: .38;
-            pointer-events: none;
-        }
-        .ev-addon-row .ev-addon-check {
-            width: 22px;
-            height: 22px;
-            border-radius: 6px;
-            border: 2px solid var(--ev-border);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            transition: background .2s, border-color .2s;
-            font-size: .8rem;
-            color: #fff;
-        }
-        .ev-addon-row.selected .ev-addon-check {
-            background: var(--ev-primary-dark);
-            border-color: var(--ev-primary-dark);
-        }
-        .ev-addon-row .ev-addon-info {
-            flex: 1;
-            min-width: 0;
-        }
-        .ev-addon-row .ev-addon-name {
-            font-weight: 600;
-            font-size: .88rem;
-        }
-        .ev-addon-row .ev-addon-desc {
-            font-size: .77rem;
-            color: var(--ev-text-muted);
-        }
-        .ev-addon-row .ev-addon-price {
-            font-weight: 700;
-            font-size: .92rem;
-            white-space: nowrap;
-            color: var(--ev-primary-dark);
-        }
-        .ev-addon-row .ev-addon-price.is-free {
-            color: var(--ev-success);
-        }
-
-        .ev-addon-row .ev-qty-stepper {
-            display: flex;
-            align-items: center;
-            gap: .35rem;
-            margin-left: auto;
-        }
-        .ev-qty-stepper button {
-            width: 26px;
-            height: 26px;
-            border-radius: 50%;
-            border: 2px solid var(--ev-border);
-            background: var(--ev-card);
-            font-size: .95rem;
-            font-weight: 700;
-            line-height: 1;
-            cursor: pointer;
-            color: var(--ev-text);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: border-color .2s, background .2s;
-            font-family: inherit;
-            padding: 0;
-        }
-        .ev-qty-stepper button:hover {
-            border-color: var(--ev-primary);
-            background: var(--ev-primary-light);
-        }
-        .ev-qty-stepper .ev-qty-val {
-            min-width: 22px;
-            text-align: center;
-            font-weight: 700;
-            font-size: .9rem;
-        }
-
-        .ev-package-hint {
-            font-size: .85rem;
-            color: var(--ev-text-muted);
-            margin-bottom: .75rem;
-        }
-        .ev-package-options {
-            display: flex;
-            gap: .7rem;
-        }
-        .ev-package-btn {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: .2rem;
-            padding: .85rem .5rem;
-            border: 2px solid var(--ev-border);
-            border-radius: var(--ev-radius);
-            background: var(--ev-card);
-            cursor: pointer;
-            transition: border-color .2s, background .2s, transform .15s;
-            font-family: inherit;
-        }
-        .ev-package-btn:hover {
-            border-color: var(--ev-primary);
-            transform: translateY(-2px);
-        }
-        .ev-package-btn.active {
-            border-color: var(--ev-primary-dark);
-            background: var(--ev-primary-light);
-        }
-        .ev-package-qty {
-            font-size: 1.35rem;
-            font-weight: 800;
-            color: var(--ev-primary-dark);
-        }
-        .ev-package-label {
-            font-size: .78rem;
-            color: var(--ev-text-muted);
-            font-weight: 500;
-        }
-
-        .ev-summary {
-            display: flex;
-            flex-direction: column;
-            gap: .35rem;
-            margin-bottom: 1rem;
-        }
-        .ev-summary-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: .88rem;
-        }
-        .ev-summary-row.discount {
-            color: var(--ev-success);
-            font-weight: 600;
-        }
-        .ev-total-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: linear-gradient(135deg, var(--ev-primary), var(--ev-primary-dark));
-            color: #fff;
-            padding: 1rem 1.2rem;
-            border-radius: 10px;
-            margin-bottom: 1rem;
-        }
-        .ev-total-label {
-            font-size: 1rem;
-            font-weight: 600;
-        }
-        .ev-total-amount {
-            font-size: 1.5rem;
-            font-weight: 800;
-        }
-        .ev-book-btn {
-            display: block;
-            width: 100%;
-            padding: 1rem;
-            border: none;
-            border-radius: 10px;
-            background: var(--ev-primary-dark);
-            color: #fff;
-            font-size: 1.05rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: background .2s, transform .15s;
-            font-family: inherit;
-            letter-spacing: .02em;
-        }
-        .ev-book-btn:hover {
-            background: #7d4470;
-            transform: translateY(-1px);
-        }
-        .ev-book-btn:active {
-            transform: translateY(0);
-        }
+        /* Price summary */
+        .ev-summary { display: flex; flex-direction: column; gap: .35rem; margin-bottom: 1rem; }
+        .ev-summary-row { display: flex; justify-content: space-between; font-size: .88rem; }
+        .ev-summary-row.discount { color: var(--ev-success); font-weight: 600; }
+        .ev-total-bar { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, var(--ev-primary), var(--ev-primary-dark)); color: #fff; padding: 1rem 1.2rem; border-radius: 10px; margin-bottom: 1rem; }
+        .ev-total-label { font-size: 1rem; font-weight: 600; }
+        .ev-total-amount { font-size: 1.5rem; font-weight: 800; }
+        .ev-book-btn { display: block; width: 100%; padding: 1rem; border: none; border-radius: 10px; background: var(--ev-primary-dark); color: #fff; font-size: 1.05rem; font-weight: 700; cursor: pointer; transition: background .2s, transform .15s; font-family: inherit; letter-spacing: .02em; }
+        .ev-book-btn:hover { background: #7d4470; transform: translateY(-1px); }
+        .ev-book-btn:active { transform: translateY(0); }
 
         @media (max-width: 520px) {
-            .ev-booking {
-                margin: 0;
-            }
-            .ev-section {
-                padding: 1.1rem 1rem;
-            }
-            .ev-toggle-group,
-            .ev-package-options {
-                flex-direction: column;
-            }
-            .ev-included-grid {
-                grid-template-columns: 1fr;
-            }
+            .ev-booking { margin: 0; }
+            .ev-section { padding: 1.1rem 1rem; }
+            .ev-toggle-group, .ev-package-options { flex-direction: column; }
+            .ev-included-grid, .ev-milestone-timeline { grid-template-columns: 1fr; }
+            .ev-preg-toggle-group { flex-direction: column; }
         }
     </style>
 </head>
@@ -448,13 +134,11 @@
 
     <div id="echovisie-booking" class="ev-booking">
 
-        <!-- Header -->
         <div class="ev-header">
             <h2 class="ev-title">Stel jouw echo samen</h2>
             <p class="ev-subtitle">Verschuif de slider om de duur te kiezen en ontgrendel extra's</p>
         </div>
 
-        <!-- Duration slider -->
         <div class="ev-section ev-duration-section">
             <label class="ev-label" for="ev-duration-slider">Duur van de echo</label>
             <div class="ev-slider-wrap">
@@ -466,36 +150,32 @@
             <div class="ev-duration-display"><span id="ev-duration-value">10</span> minuten</div>
         </div>
 
-        <!-- Time-of-day selector -->
         <div class="ev-section ev-time-section">
             <label class="ev-label">Tijdstip</label>
             <div class="ev-toggle-group">
                 <button type="button" class="ev-toggle active" data-time="working">
-                    <span class="ev-toggle-icon">&#9728;</span>
-                    Werkuren
-                    <span class="ev-toggle-price">startkosten &euro;10</span>
+                    <span class="ev-toggle-icon">&#9728;&#65039;</span>
+                    Overdag
+                    <span class="ev-toggle-discount">&euro;10 korting!</span>
                 </button>
                 <button type="button" class="ev-toggle" data-time="evening">
                     <span class="ev-toggle-icon">&#9790;</span>
                     Avond / Weekend
-                    <span class="ev-toggle-price">startkosten &euro;20</span>
+                    <span class="ev-toggle-price">standaardtarief</span>
                 </button>
             </div>
         </div>
 
-        <!-- Included features -->
         <div class="ev-section ev-included-section">
             <h3 class="ev-section-title">Inbegrepen bij jouw keuze</h3>
             <div class="ev-included-grid" id="ev-included-grid"></div>
         </div>
 
-        <!-- Optional add-ons -->
         <div class="ev-section ev-addons-section">
             <h3 class="ev-section-title">Extra opties</h3>
             <div class="ev-addons-list" id="ev-addons-list"></div>
         </div>
 
-        <!-- Package discount -->
         <div class="ev-section ev-package-section">
             <h3 class="ev-section-title">Afsprakenpakket</h3>
             <p class="ev-package-hint">Boek meerdere afspraken tegelijk en bespaar!</p>
@@ -515,7 +195,24 @@
             </div>
         </div>
 
-        <!-- Price summary -->
+        <div class="ev-section ev-preg-section">
+            <h3 class="ev-section-title">Wanneer ben je uitgerekend?</h3>
+            <p class="ev-preg-subtitle">Vul je datum in zodat we de ideale momenten voor je echo's kunnen berekenen</p>
+            <div class="ev-preg-toggle-group">
+                <button type="button" class="ev-preg-toggle" data-preg-type="due">Ik weet mijn uitgerekende datum</button>
+                <button type="button" class="ev-preg-toggle" data-preg-type="lmp">Ik weet de eerste dag van mijn laatste menstruatie</button>
+            </div>
+            <div id="ev-preg-date-wrapper" class="ev-preg-date-wrapper" style="display:none">
+                <input type="date" id="ev-preg-date-input" class="ev-preg-date-input">
+            </div>
+            <div id="ev-preg-info"></div>
+        </div>
+
+        <div class="ev-section ev-dates-section">
+            <h3 class="ev-section-title">Kies je afspraakdatum</h3>
+            <div id="ev-dates-container" class="ev-dates-container"></div>
+        </div>
+
         <div class="ev-section ev-summary-section">
             <div class="ev-summary" id="ev-summary"></div>
             <div class="ev-total-bar">
@@ -527,408 +224,7 @@
 
     </div>
 
-    <script>
-    (function () {
-        'use strict';
-
-        var state = {
-            duration: 10,
-            timeSlot: 'working',
-            packageQty: 1,
-            addons: {}
-        };
-
-        function basePriceForDuration(duration, timeSlot) {
-            var startFee = timeSlot === 'working' ? 10 : 20;
-            var extraBlocks = Math.max(0, (duration - 10) / 10);
-            return startFee + extraBlocks * 15;
-        }
-
-        function freeSmallPhotos(duration) {
-            if (duration < 20) return 0;
-            return 2 + Math.max(0, (duration - 20) / 10) * 2;
-        }
-
-        function freeLargePhotos(duration) {
-            return duration >= 20 ? 1 : 0;
-        }
-
-        function genderAvailable(duration) {
-            return duration >= 20;
-        }
-
-        function recordingFree(duration) {
-            return duration >= 40;
-        }
-
-        function usbFree(duration) {
-            return duration >= 40;
-        }
-
-        function included2D(duration) {
-            return (duration / 10) * 5;
-        }
-
-        function included3D(duration) {
-            if (duration < 20) return 0;
-            return Math.floor(duration / 10) * 2;
-        }
-
-        function included4D(duration) {
-            if (duration < 30) return 0;
-            return Math.floor(duration / 10) * 1;
-        }
-
-        function packageDiscount(qty) {
-            if (qty === 2) return 0.10;
-            if (qty === 3) return 0.20;
-            return 0;
-        }
-
-        function buildIncludedCards(duration) {
-            return [
-                {
-                    icon: '\uD83D\uDDBC\uFE0F',
-                    name: 'Kleine foto\'s (print)',
-                    detail: freeSmallPhotos(duration) > 0
-                        ? freeSmallPhotos(duration) + ' stuks inbegrepen'
-                        : 'Beschikbaar als extra (\u20AC2/stuk)',
-                    free: freeSmallPhotos(duration) > 0,
-                    unlockAt: 20
-                },
-                {
-                    icon: '\uD83D\uDDBC\uFE0F',
-                    name: 'Grote foto (print)',
-                    detail: freeLargePhotos(duration) > 0
-                        ? '1 stuk inbegrepen'
-                        : 'Beschikbaar als extra (\u20AC4/stuk)',
-                    free: freeLargePhotos(duration) > 0,
-                    unlockAt: 20
-                },
-                {
-                    icon: '\uD83D\uDC76',
-                    name: 'Geslachtsbepaling',
-                    detail: genderAvailable(duration) ? 'Gratis beschikbaar' : 'Ontgrendeld bij 20 min',
-                    free: genderAvailable(duration),
-                    unlockAt: 20
-                },
-                {
-                    icon: '\uD83C\uDFA5',
-                    name: 'Volledige opname',
-                    detail: recordingFree(duration) ? 'Gratis inbegrepen' : 'Beschikbaar als extra (\u20AC30)',
-                    free: recordingFree(duration),
-                    unlockAt: 40
-                },
-                {
-                    icon: '\uD83D\uDD0C',
-                    name: 'USB-stick (16 GB)',
-                    detail: usbFree(duration) ? 'Gratis inbegrepen' : 'Beschikbaar als extra (\u20AC10)',
-                    free: usbFree(duration),
-                    unlockAt: 40
-                },
-                {
-                    icon: '\uD83D\uDCF7',
-                    name: 'Digitale 2D-beelden',
-                    detail: included2D(duration) + ' beelden inbegrepen',
-                    free: true,
-                    unlockAt: 10
-                },
-                {
-                    icon: '\uD83E\uDD30',
-                    name: 'Digitale 3D-beelden',
-                    detail: included3D(duration) > 0
-                        ? included3D(duration) + ' beelden inbegrepen'
-                        : 'Ontgrendeld bij 20 min',
-                    free: included3D(duration) > 0,
-                    unlockAt: 20
-                },
-                {
-                    icon: '\uD83C\uDFAC',
-                    name: '4D-video\'s',
-                    detail: included4D(duration) > 0
-                        ? included4D(duration) + ' video(s) inbegrepen'
-                        : 'Ontgrendeld bij 30 min',
-                    free: included4D(duration) > 0,
-                    unlockAt: 30
-                }
-            ];
-        }
-
-        function buildAddons(duration) {
-            var freeSmall = freeSmallPhotos(duration);
-            var freeLarge = freeLargePhotos(duration);
-
-            return [
-                {
-                    id: 'extra_small_photo',
-                    name: 'Extra kleine foto (print)',
-                    desc: freeSmall > 0
-                        ? freeSmall + ' gratis inbegrepen \u2014 extra voor \u20AC2/stuk'
-                        : '\u20AC2 per stuk',
-                    unitPrice: 2,
-                    type: 'qty',
-                    minQty: 0,
-                    maxQty: 20,
-                    enabled: true
-                },
-                {
-                    id: 'extra_large_photo',
-                    name: 'Extra grote foto (print)',
-                    desc: freeLarge > 0
-                        ? freeLarge + ' gratis inbegrepen \u2014 extra voor \u20AC4/stuk'
-                        : '\u20AC4 per stuk',
-                    unitPrice: 4,
-                    type: 'qty',
-                    minQty: 0,
-                    maxQty: 10,
-                    enabled: true
-                },
-                {
-                    id: 'gender',
-                    name: 'Geslachtsbepaling',
-                    desc: genderAvailable(duration) ? 'Gratis bij jouw duur' : 'Beschikbaar vanaf 20 min',
-                    unitPrice: 0,
-                    type: 'toggle',
-                    enabled: genderAvailable(duration)
-                },
-                {
-                    id: 'recording',
-                    name: 'Volledige opname',
-                    desc: recordingFree(duration) ? 'Gratis inbegrepen' : '\u20AC30',
-                    unitPrice: recordingFree(duration) ? 0 : 30,
-                    type: 'toggle',
-                    enabled: true,
-                    autoSelected: recordingFree(duration)
-                },
-                {
-                    id: 'usb',
-                    name: 'USB-stick (16 GB)',
-                    desc: usbFree(duration) ? 'Gratis inbegrepen' : '\u20AC10',
-                    unitPrice: usbFree(duration) ? 0 : 10,
-                    type: 'toggle',
-                    enabled: true,
-                    autoSelected: usbFree(duration)
-                }
-            ];
-        }
-
-        function euro(amount) {
-            return '\u20AC' + amount.toFixed(2).replace('.', ',');
-        }
-
-        function renderIncludedGrid() {
-            var container = document.getElementById('ev-included-grid');
-            if (!container) return;
-            var cards = buildIncludedCards(state.duration);
-            var html = '';
-            for (var i = 0; i < cards.length; i++) {
-                var c = cards[i];
-                var locked = state.duration < c.unlockAt;
-                html += '<div class="ev-included-card' + (locked ? ' locked' : '') + '">';
-                html += '<span class="ev-inc-icon">' + c.icon + '</span>';
-                html += '<span class="ev-inc-name">' + c.name + '</span>';
-                html += '<span class="ev-inc-detail">' + c.detail + '</span>';
-                if (!locked && c.free) {
-                    html += '<span class="ev-inc-badge free">Inbegrepen</span>';
-                } else if (locked) {
-                    html += '<span class="ev-inc-badge unlock">Vanaf ' + c.unlockAt + ' min</span>';
-                }
-                html += '</div>';
-            }
-            container.innerHTML = html;
-        }
-
-        function renderAddons() {
-            var container = document.getElementById('ev-addons-list');
-            if (!container) return;
-            var addons = buildAddons(state.duration);
-            var html = '';
-
-            for (var i = 0; i < addons.length; i++) {
-                var a = addons[i];
-                var addonState = state.addons[a.id] || { qty: 0 };
-
-                if (a.autoSelected && !state.addons[a.id]) {
-                    state.addons[a.id] = { qty: 1 };
-                    addonState = state.addons[a.id];
-                }
-
-                var selected = addonState.qty > 0;
-                var disabled = !a.enabled;
-
-                if (a.type === 'toggle') {
-                    html += '<div class="ev-addon-row' + (selected ? ' selected' : '') + (disabled ? ' disabled' : '') + '" data-addon-id="' + a.id + '" data-type="toggle">';
-                    html += '<span class="ev-addon-check">' + (selected ? '&#10003;' : '') + '</span>';
-                    html += '<div class="ev-addon-info"><span class="ev-addon-name">' + a.name + '</span>';
-                    html += '<span class="ev-addon-desc">' + a.desc + '</span></div>';
-                    html += '<span class="ev-addon-price' + (a.unitPrice === 0 ? ' is-free' : '') + '">' + (a.unitPrice === 0 ? 'Gratis' : euro(a.unitPrice)) + '</span>';
-                    html += '</div>';
-                } else {
-                    html += '<div class="ev-addon-row' + (selected ? ' selected' : '') + (disabled ? ' disabled' : '') + '" data-addon-id="' + a.id + '" data-type="qty" data-max="' + a.maxQty + '">';
-                    html += '<span class="ev-addon-check">' + (selected ? '&#10003;' : '') + '</span>';
-                    html += '<div class="ev-addon-info"><span class="ev-addon-name">' + a.name + '</span>';
-                    html += '<span class="ev-addon-desc">' + a.desc + '</span></div>';
-                    html += '<div class="ev-qty-stepper">';
-                    html += '<button type="button" class="ev-qty-minus" data-addon-id="' + a.id + '">&minus;</button>';
-                    html += '<span class="ev-qty-val">' + addonState.qty + '</span>';
-                    html += '<button type="button" class="ev-qty-plus" data-addon-id="' + a.id + '">&plus;</button>';
-                    html += '</div>';
-                    html += '<span class="ev-addon-price">' + euro(a.unitPrice * addonState.qty) + '</span>';
-                    html += '</div>';
-                }
-            }
-            container.innerHTML = html;
-        }
-
-        function calculateTotal() {
-            var duration = state.duration;
-            var base = basePriceForDuration(duration, state.timeSlot);
-            var addonsTotal = 0;
-            var addons = buildAddons(duration);
-
-            var lines = [];
-            lines.push({ label: 'Basispakket (' + duration + ' min)', amount: base });
-
-            for (var i = 0; i < addons.length; i++) {
-                var a = addons[i];
-                var addonState = state.addons[a.id] || { qty: 0 };
-                if (addonState.qty > 0 && a.unitPrice > 0) {
-                    var cost = a.unitPrice * addonState.qty;
-                    addonsTotal += cost;
-                    var qty_label = addonState.qty > 1 ? ' x' + addonState.qty : '';
-                    lines.push({ label: a.name + qty_label, amount: cost });
-                }
-            }
-
-            var subtotal = base + addonsTotal;
-            var qty = state.packageQty;
-            var rawTotal = subtotal * qty;
-            var disc = packageDiscount(qty);
-            var discountAmount = rawTotal * disc;
-            var total = rawTotal - discountAmount;
-
-            if (qty > 1) {
-                lines.push({ label: qty + 'x afspraken subtotaal', amount: rawTotal });
-            }
-
-            return { lines: lines, subtotal: subtotal, qty: qty, discount: disc, discountAmount: discountAmount, total: total };
-        }
-
-        function renderSummary() {
-            var calc = calculateTotal();
-            var container = document.getElementById('ev-summary');
-            var totalEl = document.getElementById('ev-total-amount');
-            if (!container || !totalEl) return;
-
-            var html = '';
-            for (var i = 0; i < calc.lines.length; i++) {
-                var l = calc.lines[i];
-                html += '<div class="ev-summary-row"><span>' + l.label + '</span><span>' + euro(l.amount) + '</span></div>';
-            }
-            if (calc.discountAmount > 0) {
-                html += '<div class="ev-summary-row discount"><span>Pakketkorting (' + Math.round(calc.discount * 100) + '%)</span><span>&minus; ' + euro(calc.discountAmount) + '</span></div>';
-            }
-            container.innerHTML = html;
-            totalEl.textContent = euro(calc.total);
-        }
-
-        function renderAll() {
-            renderIncludedGrid();
-            renderAddons();
-            renderSummary();
-        }
-
-        function resetAutoSelections() {
-            var autoKeys = ['recording', 'usb'];
-            var addons = buildAddons(state.duration);
-            for (var i = 0; i < addons.length; i++) {
-                var a = addons[i];
-                if (autoKeys.indexOf(a.id) !== -1) {
-                    if (a.autoSelected) {
-                        state.addons[a.id] = { qty: 1 };
-                    }
-                }
-            }
-        }
-
-        function init() {
-            var slider = document.getElementById('ev-duration-slider');
-            var durationLabel = document.getElementById('ev-duration-value');
-
-            if (!slider) return;
-
-            slider.addEventListener('input', function () {
-                state.duration = parseInt(this.value, 10);
-                if (durationLabel) durationLabel.textContent = state.duration;
-                resetAutoSelections();
-                renderAll();
-            });
-
-            document.querySelectorAll('.ev-toggle[data-time]').forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    document.querySelectorAll('.ev-toggle[data-time]').forEach(function (b) { b.classList.remove('active'); });
-                    this.classList.add('active');
-                    state.timeSlot = this.getAttribute('data-time');
-                    renderAll();
-                });
-            });
-
-            document.querySelectorAll('.ev-package-btn').forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    document.querySelectorAll('.ev-package-btn').forEach(function (b) { b.classList.remove('active'); });
-                    this.classList.add('active');
-                    state.packageQty = parseInt(this.getAttribute('data-qty'), 10);
-                    renderAll();
-                });
-            });
-
-            document.getElementById('ev-addons-list').addEventListener('click', function (e) {
-                var row = e.target.closest('.ev-addon-row');
-                if (!row || row.classList.contains('disabled')) return;
-
-                var id = row.getAttribute('data-addon-id');
-                var type = row.getAttribute('data-type');
-
-                if (type === 'toggle') {
-                    if (!state.addons[id]) state.addons[id] = { qty: 0 };
-                    state.addons[id].qty = state.addons[id].qty > 0 ? 0 : 1;
-                    renderAll();
-                    return;
-                }
-
-                var maxQty = parseInt(row.getAttribute('data-max') || '99', 10);
-                if (!state.addons[id]) state.addons[id] = { qty: 0 };
-
-                if (e.target.closest('.ev-qty-minus')) {
-                    state.addons[id].qty = Math.max(0, state.addons[id].qty - 1);
-                    renderAll();
-                } else if (e.target.closest('.ev-qty-plus')) {
-                    state.addons[id].qty = Math.min(maxQty, state.addons[id].qty + 1);
-                    renderAll();
-                }
-            });
-
-            document.getElementById('ev-book-btn').addEventListener('click', function () {
-                var calc = calculateTotal();
-                var msg = 'Bedankt voor je interesse! Je selectie:\n\n';
-                msg += 'Duur: ' + state.duration + ' minuten\n';
-                msg += 'Tijdstip: ' + (state.timeSlot === 'working' ? 'Werkuren' : 'Avond/Weekend') + '\n';
-                msg += 'Aantal afspraken: ' + state.packageQty + '\n';
-                msg += 'Totaal: ' + euro(calc.total) + '\n\n';
-                msg += 'Neem contact op om je afspraak te bevestigen!';
-                alert(msg);
-            });
-
-            renderAll();
-        }
-
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', init);
-        } else {
-            init();
-        }
-    })();
-    </script>
+    <script src="js/echovisie-booking.js"></script>
 
 </body>
 </html>
