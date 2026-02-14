@@ -180,6 +180,44 @@ function echovisie_register_settings() {
             )
         );
     }
+
+    /* --- Section: Pakketsuggesties --- */
+    add_settings_section(
+        'echovisie_suggestions_section',
+        'Pakketsuggesties',
+        'echovisie_suggestions_section_cb',
+        'echovisie-settings'
+    );
+
+    $suggestion_milestones = array(
+        'gender'   => 'Geslachtsbepaling (week 15-16)',
+        'pretecho' => 'Pretecho 3D/4D (week 26-28)',
+        'growth'   => 'Groei-echo (week 30-36)',
+    );
+    foreach ( $suggestion_milestones as $ms_id => $ms_label ) {
+        add_settings_field(
+            'echovisie_sug_' . $ms_id . '_duration',
+            $ms_label . ' &mdash; Duur',
+            'echovisie_duration_select_cb',
+            'echovisie-settings',
+            'echovisie_suggestions_section',
+            array(
+                'key'         => 'suggestion_' . $ms_id . '_duration',
+                'description' => 'Standaard duur voor deze echo in de pakketsuggesties',
+            )
+        );
+        add_settings_field(
+            'echovisie_sug_' . $ms_id . '_addons',
+            $ms_label . ' &mdash; Inbegrepen extras',
+            'echovisie_addons_checkboxes_cb',
+            'echovisie-settings',
+            'echovisie_suggestions_section',
+            array(
+                'key'         => 'suggestion_' . $ms_id . '_addons',
+                'description' => 'Standaard inbegrepen extra&rsquo;s bij deze echo',
+            )
+        );
+    }
 }
 
 /* =================================================================
@@ -206,6 +244,12 @@ function echovisie_default_settings() {
         'cf_pregnancy_week'  => 0,
         'cf_due_date'        => 0,
         'cf_notes'           => 0,
+        'suggestion_gender_duration'   => 20,
+        'suggestion_gender_addons'     => 'usb',
+        'suggestion_pretecho_duration' => 40,
+        'suggestion_pretecho_addons'   => 'recording',
+        'suggestion_growth_duration'   => 30,
+        'suggestion_growth_addons'     => 'recording',
     );
 }
 
@@ -217,8 +261,24 @@ function echovisie_sanitize_settings( $input ) {
     $defaults  = echovisie_default_settings();
     $sanitized = array();
 
+    // Addon checkbox fields need special handling (may be absent when unchecked)
+    $addon_keys = array(
+        'suggestion_gender_addons',
+        'suggestion_pretecho_addons',
+        'suggestion_growth_addons',
+    );
+    $valid_addons = array( 'recording', 'usb' );
+
     foreach ( $defaults as $key => $default ) {
-        if ( is_int( $default ) ) {
+        if ( in_array( $key, $addon_keys, true ) ) {
+            // Comma-separated addon string from checkboxes
+            if ( isset( $input[ $key ] ) && is_array( $input[ $key ] ) ) {
+                $cleaned = array_intersect( $input[ $key ], $valid_addons );
+                $sanitized[ $key ] = implode( ',', $cleaned );
+            } else {
+                $sanitized[ $key ] = '';
+            }
+        } elseif ( is_int( $default ) ) {
             $sanitized[ $key ] = isset( $input[ $key ] ) ? absint( $input[ $key ] ) : $default;
         } else {
             $sanitized[ $key ] = isset( $input[ $key ] ) ? sanitize_text_field( $input[ $key ] ) : $default;
@@ -252,6 +312,10 @@ function echovisie_custom_fields_section_cb() {
     echo '<p>Maak custom fields aan in <strong>Bookly &rarr; Custom Fields</strong> en vul hier de ID&rsquo;s in. Dit is optioneel &mdash; laat op 0 staan als je dit niet gebruikt.</p>';
 }
 
+function echovisie_suggestions_section_cb() {
+    echo '<p>Configureer de standaard echo-configuratie per mijlpaal. Deze worden gebruikt in de pakketsuggesties die bezoekers zien op basis van hun zwangerschapsweek.</p>';
+}
+
 /* =================================================================
    FIELD CALLBACKS
    ================================================================= */
@@ -272,6 +336,55 @@ function echovisie_number_field_cb( $args ) {
         esc_attr( $key ),
         esc_attr( $value )
     );
+
+    if ( $desc ) {
+        printf( '<p class="description">%s</p>', $desc );
+    }
+}
+
+function echovisie_duration_select_cb( $args ) {
+    $key   = $args['key'];
+    $value = absint( echovisie_get_setting( $key ) );
+    $desc  = $args['description'] ?? '';
+    $durations = array( 10, 20, 30, 40, 50, 60 );
+
+    echo '<select name="echovisie_settings[' . esc_attr( $key ) . ']">';
+    foreach ( $durations as $d ) {
+        printf(
+            '<option value="%d"%s>%d minuten</option>',
+            $d,
+            selected( $value, $d, false ),
+            $d
+        );
+    }
+    echo '</select>';
+
+    if ( $desc ) {
+        printf( '<p class="description">%s</p>', $desc );
+    }
+}
+
+function echovisie_addons_checkboxes_cb( $args ) {
+    $key      = $args['key'];
+    $value    = echovisie_get_setting( $key );
+    $selected = is_string( $value ) ? array_filter( explode( ',', $value ) ) : array();
+    $desc     = $args['description'] ?? '';
+
+    $options = array(
+        'recording' => 'Volledige opname',
+        'usb'       => 'USB-stick (16 GB)',
+    );
+
+    foreach ( $options as $opt_id => $opt_label ) {
+        $checked = in_array( $opt_id, $selected, true ) ? ' checked' : '';
+        printf(
+            '<label style="margin-right:1.5em;"><input type="checkbox" name="echovisie_settings[%s][]" value="%s"%s> %s</label>',
+            esc_attr( $key ),
+            esc_attr( $opt_id ),
+            $checked,
+            esc_html( $opt_label )
+        );
+    }
 
     if ( $desc ) {
         printf( '<p class="description">%s</p>', $desc );
