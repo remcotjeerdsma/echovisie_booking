@@ -877,6 +877,10 @@
 
         // Validate current step before advancing
         if (step > state.currentStep) {
+            // Re-sync pregnancy date from DOM in case change events didn't fire
+            if (state.currentStep === 0) {
+                updatePregDateFromDropdowns();
+            }
             var validationError = validateStep(state.currentStep);
             if (validationError) {
                 showStepError(validationError);
@@ -1882,9 +1886,11 @@
         var pregMonth = document.getElementById('ev-preg-month');
         if (pregDay) {
             pregDay.addEventListener('change', updatePregDateFromDropdowns);
+            pregDay.addEventListener('input', updatePregDateFromDropdowns);
         }
         if (pregMonth) {
             pregMonth.addEventListener('change', updatePregDateFromDropdowns);
+            pregMonth.addEventListener('input', updatePregDateFromDropdowns);
         }
 
         // Appointment date inputs (step 1, delegated)
