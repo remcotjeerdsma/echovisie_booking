@@ -561,10 +561,10 @@
         var customEl = document.getElementById('ev-custom-configurator');
         if (customEl) customEl.style.display = 'none';
 
-        // Show sidebar + summary, then auto-advance to step 1
+        // Stay on step 0, highlight the card, show sidebar
+        renderSuggestions();
         showSidebar();
         renderSummary();
-        setStep(1);
     }
 
     function resetAutoSelectionsForApt2(apt) {
@@ -593,7 +593,6 @@
         showSidebar();
         renderSummary();
         renderSuggestions();
-        renderStepNav(); // Show "Volgende" button for custom configurator
 
         var slider = document.getElementById('ev-duration-slider');
         if (slider) {
@@ -610,8 +609,12 @@
         var wrapper = document.getElementById('ev-suggestions-wrapper');
         if (!wrapper) return;
         wrapper.style.display = '';
+        // Re-trigger animation by removing and re-adding class
+        wrapper.classList.remove('ev-section-reveal');
+        void wrapper.offsetWidth; // force reflow
         wrapper.classList.add('ev-section-reveal');
         renderSuggestions();
+        wrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function hideSuggestionsWrapper() {
@@ -850,11 +853,7 @@
             html += '<span></span>';
         }
 
-        // Step 0: no "Volgende" button — auto-advance happens when user picks a suggestion
-        // Only show "Volgende" for custom configurator (selectedSuggestion === 'custom')
-        if (state.currentStep === 0 && state.selectedSuggestion === 'custom') {
-            html += '<button type="button" class="ev-step-next-btn" id="ev-next-btn">Volgende &rarr;</button>';
-        } else if (state.currentStep > 0 && state.currentStep < STEP_LABELS.length - 1) {
+        if (state.currentStep < STEP_LABELS.length - 1) {
             html += '<button type="button" class="ev-step-next-btn" id="ev-next-btn">Volgende &rarr;</button>';
         } else {
             html += '<span></span>';
