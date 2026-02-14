@@ -10,8 +10,7 @@
        ========================================================= */
     var MONTHS_NL = ['januari', 'februari', 'maart', 'april', 'mei', 'juni',
                      'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
-    var DAY_MS  = 86400000;
-    var WEEK_MS = 7 * DAY_MS;
+    var DAY_MS  = 86400000; // used only for UTC day-diff calculations
     var PREGNANCY_WEEKS = 40;
     var PREGNANCY_DAYS  = PREGNANCY_WEEKS * 7;
     var DAYTIME_DISCOUNT = 10;
@@ -194,6 +193,13 @@
         return d;
     }
 
+    /** Add/subtract calendar days – DST-safe (uses setDate instead of ms arithmetic) */
+    function addDays(date, days) {
+        var d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        d.setDate(d.getDate() + days);
+        return d;
+    }
+
     /* =========================================================
        PREGNANCY DATE VALIDATION
        ========================================================= */
@@ -227,26 +233,31 @@
         if (state.pregType === 'lmp') return parseDate(state.pregDate);
         var due = parseDate(state.pregDate);
         if (!due) return null;
-        return new Date(due.getTime() - PREGNANCY_DAYS * DAY_MS);
+        return addDays(due, -PREGNANCY_DAYS);
     }
 
     function getCurrentWeek() {
         var lmp = getLmpDate();
         if (!lmp) return null;
-        var diff = today().getTime() - lmp.getTime();
-        return Math.floor(diff / WEEK_MS);
+        var t = today();
+        // Use Date.UTC to compare pure calendar days (immune to DST shifts)
+        var daysDiff = Math.round(
+            (Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()) -
+             Date.UTC(lmp.getFullYear(), lmp.getMonth(), lmp.getDate())) / DAY_MS
+        );
+        return Math.floor(daysDiff / 7);
     }
 
     function getDueDate() {
         var lmp = getLmpDate();
         if (!lmp) return null;
-        return new Date(lmp.getTime() + PREGNANCY_DAYS * DAY_MS);
+        return addDays(lmp, PREGNANCY_DAYS);
     }
 
     function getDateForWeek(weekNum) {
         var lmp = getLmpDate();
         if (!lmp) return null;
-        return new Date(lmp.getTime() + weekNum * WEEK_MS);
+        return addDays(lmp, weekNum * 7);
     }
 
     function getMilestoneStatus(milestone, currentWeek) {
@@ -1050,7 +1061,7 @@
         syncAppointmentCount();
         var qty = state.packageQty;
         var currentWeek = getCurrentWeek();
-        var minDate = formatDateISO(new Date(today().getTime() + DAY_MS));
+        var minDate = formatDateISO(addDays(today(), 1));
         var html = '';
 
         // Build date suggestions: use milestone from appointment if available, else fallback
