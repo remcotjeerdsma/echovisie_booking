@@ -105,7 +105,7 @@ function echovisie_enqueue_assets() {
             true
         );
 
-        $settings = get_option( 'echovisie_settings', echovisie_default_settings() );
+        $settings = get_option( 'echovisie_settings', array() );
         $suggestions = array(
             'gender' => array(
                 'duration' => absint( $settings['suggestion_gender_duration'] ?? 20 ),
