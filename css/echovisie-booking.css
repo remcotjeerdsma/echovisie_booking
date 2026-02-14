@@ -145,8 +145,8 @@
     flex: 1;
     height: 2px;
     background: var(--ev-border);
-    min-width: 40px;
-    max-width: 80px;
+    min-width: 60px;
+    max-width: 160px;
     margin: 0 .5rem;
     margin-bottom: 1.3rem; /* offset for label height */
     transition: background .3s;
@@ -1329,6 +1329,98 @@
     40%, 80% { transform: translateX(4px); }
 }
 
+/* ---------- Pregnancy day/month dropdowns ---------- */
+.ev-preg-dropdowns {
+    display: flex;
+    gap: .6rem;
+    margin-bottom: .8rem;
+}
+.ev-preg-select {
+    flex: 1;
+    padding: .65rem .8rem;
+    border: 2px solid var(--ev-border);
+    border-radius: 10px;
+    font-size: .9rem;
+    font-family: inherit;
+    color: var(--ev-text);
+    background: var(--ev-card);
+    outline: none;
+    transition: border-color .2s;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%237A7A7A' d='M1.41 0L6 4.58 10.59 0 12 1.41l-6 6-6-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right .8rem center;
+    padding-right: 2.2rem;
+}
+.ev-preg-select:focus {
+    border-color: var(--ev-primary);
+}
+.ev-preg-select.has-error {
+    border-color: #D32F2F;
+}
+
+/* ---------- Suggestion badge pills ---------- */
+.ev-suggestion-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+}
+.ev-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    padding: .2rem .55rem;
+    border-radius: 20px;
+    font-size: .72rem;
+    font-weight: 600;
+    background: var(--ev-primary-light);
+    color: var(--ev-primary-dark);
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+/* ---------- Selected suggestion card ---------- */
+.ev-suggestion-selected {
+    border-color: var(--ev-primary-dark) !important;
+    background: var(--ev-primary-light);
+    box-shadow: 0 4px 16px rgba(247, 148, 29, .2);
+}
+.ev-suggestion-selected .ev-suggestion-choose-btn {
+    background: var(--ev-success);
+}
+
+/* ---------- Section reveal animation ---------- */
+.ev-section-reveal {
+    animation: ev-reveal .4s ease-out;
+}
+@keyframes ev-reveal {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ---------- Sidebar slide-in ---------- */
+.ev-sidebar-visible {
+    animation: ev-slide-in .35s ease-out;
+}
+@keyframes ev-slide-in {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 860px) {
     .ev-booking-wrapper {
@@ -1361,6 +1453,9 @@
         grid-template-columns: 1fr;
     }
     .ev-preg-toggle-group {
+        flex-direction: column;
+    }
+    .ev-preg-dropdowns {
         flex-direction: column;
     }
     .ev-step-bar-wrap {

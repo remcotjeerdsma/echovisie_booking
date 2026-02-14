@@ -2,7 +2,7 @@
 /**
  * Plugin Name: EchoVisie Booking
  * Description: Interactive baby ultrasound booking widget with Bookly integration.
- * Version: 2.0.0
+ * Version: 2.1.0
  * Author: EchoVisie
  * Text Domain: echovisie-booking
  */
@@ -92,7 +92,7 @@ function echovisie_enqueue_assets() {
             'echovisie-booking-css',
             ECHOVISIE_PLUGIN_URL . 'css/echovisie-booking.css',
             array( 'echovisie-google-fonts' ),
-            '2.0.0'
+            '2.1.0'
         );
     }
 
@@ -101,7 +101,7 @@ function echovisie_enqueue_assets() {
             'echovisie-booking-js',
             ECHOVISIE_PLUGIN_URL . 'js/echovisie-booking.js',
             array(),
-            '2.0.0',
+            '2.1.0',
             true
         );
 
@@ -217,9 +217,13 @@ function echovisie_ajax_book() {
             wp_send_json_error( array( 'message' => 'Datum en tijdslot zijn verplicht voor afspraak ' . ( $i + 1 ) . '.' ) );
         }
 
-        // Calculate start and end dates
+        // Calculate start and end dates (timezone-aware)
         $start_date = $date . ' ' . $slot_time . ':00';
-        $end_date   = gmdate( 'Y-m-d H:i:s', strtotime( $start_date ) + $duration * 60 );
+        $tz         = wp_timezone();
+        $start_dt   = new DateTime( $start_date, $tz );
+        $end_dt     = clone $start_dt;
+        $end_dt->add( new DateInterval( 'PT' . $duration . 'M' ) );
+        $end_date   = $end_dt->format( 'Y-m-d H:i:s' );
 
         // Build internal note with booking details
         $note_parts = array( 'EchoVisie boeking — ' . $duration . ' min' );
@@ -322,7 +326,7 @@ function echovisie_ajax_book() {
 /* =================================================================
    AJAX HANDLER – Fetch available timeslots from Bookly
    =================================================================
-   Called by the JS configurator when the user reaches step 3.
+   Called by the JS configurator when the user enters step 1.
    Queries Bookly's internal availability engine for each appointment.
    ================================================================= */
 
@@ -379,9 +383,8 @@ function echovisie_ajax_get_slots() {
 /**
  * Query Bookly's availability for a specific service on a specific date.
  *
- * Checks each staff member's schedule (StaffScheduleItem), holidays,
- * and existing appointments to determine truly available time slots.
- * Returns slots at 10-minute intervals within each staff member's working hours.
+ * Uses DateTime with wp_timezone() for all date operations to ensure
+ * consistency with Bookly's timezone handling and DST safety.
  *
  * Returns array of [ { time, staff_id, staff_name } ].
  */
@@ -408,8 +411,6 @@ function echovisie_query_bookly_slots( $service_id, $date, $duration_min ) {
         }
 
         // ── Trigger Google Calendar sync for each staff member ──
-        // Bookly Pro syncs Google Calendar events into wp_bookly_appointments.
-        // We trigger a fresh sync so slots reflect the latest calendar state.
         if ( class_exists( '\Bookly\Lib\Proxy\Pro' ) ) {
             foreach ( $staff_ids as $sid ) {
                 try {
@@ -430,12 +431,13 @@ function echovisie_query_bookly_slots( $service_id, $date, $duration_min ) {
             $staff_map[ $staff->getId() ] = $staff->getFullName();
         }
 
-        // ── Check staff working hours from Bookly schedule ──
+        // ── Check staff working hours (timezone-aware) ──
+        $tz           = wp_timezone();
+        $date_dt      = new DateTime( $date, $tz );
+        $day_index    = (int) $date_dt->format( 'N' ); // 1=Mon, 7=Sun
         $schedule_map = array(); // staff_id => { start, end } (timestamps)
 
         if ( class_exists( '\Bookly\Lib\Entities\StaffScheduleItem' ) ) {
-            $day_index = (int) date( 'N', strtotime( $date ) ); // 1=Mon, 7=Sun
-
             $schedules = \Bookly\Lib\Entities\StaffScheduleItem::query()
                 ->whereIn( 'staff_id', $staff_ids )
                 ->where( 'day_index', $day_index )
@@ -446,9 +448,11 @@ function echovisie_query_bookly_slots( $service_id, $date, $duration_min ) {
                 $end_time   = $sched->getEndTime();
                 // start_time is NULL when the staff doesn't work that day
                 if ( $start_time && $end_time ) {
+                    $sched_start = new DateTime( $date . ' ' . $start_time, $tz );
+                    $sched_end   = new DateTime( $date . ' ' . $end_time, $tz );
                     $schedule_map[ $sched->getStaffId() ] = array(
-                        'start' => strtotime( $date . ' ' . $start_time ),
-                        'end'   => strtotime( $date . ' ' . $end_time ),
+                        'start' => $sched_start->getTimestamp(),
+                        'end'   => $sched_end->getTimestamp(),
                     );
                 }
             }
@@ -456,8 +460,8 @@ function echovisie_query_bookly_slots( $service_id, $date, $duration_min ) {
             // Fallback if schedule entity is unavailable: assume 09:00-20:00
             foreach ( $staff_ids as $sid ) {
                 $schedule_map[ $sid ] = array(
-                    'start' => strtotime( $date . ' 09:00:00' ),
-                    'end'   => strtotime( $date . ' 20:00:00' ),
+                    'start' => ( new DateTime( $date . ' 09:00:00', $tz ) )->getTimestamp(),
+                    'end'   => ( new DateTime( $date . ' 20:00:00', $tz ) )->getTimestamp(),
                 );
             }
         }
@@ -537,8 +541,10 @@ function echovisie_query_bookly_slots( $service_id, $date, $duration_min ) {
                 }
 
                 if ( $is_free ) {
+                    $slot_dt = new DateTime( '@' . $time );
+                    $slot_dt->setTimezone( $tz );
                     $slots[] = array(
-                        'time'       => date( 'H:i', $time ),
+                        'time'       => $slot_dt->format( 'H:i' ),
                         'staff_id'   => $sid,
                         'staff_name' => $staff_map[ $sid ] ?? 'Medewerker',
                     );
@@ -556,32 +562,30 @@ function echovisie_query_bookly_slots( $service_id, $date, $duration_min ) {
 /**
  * Find the nearest dates with available slots, starting from $date.
  *
- * Searches up to 14 days forward from $date to find $count dates
- * that have at least one available slot. Returns an array of
- * [ { date: 'YYYY-MM-DD', date_label: '15 maart 2026', slot_count: 12 }, ... ]
+ * Uses DateTime + DateInterval for DST-safe day iteration.
+ * Returns array of [ { date, date_label, slot_count }, ... ]
  */
 function echovisie_find_nearby_dates( $service_id, $date, $duration_min, $count = 2 ) {
-    $results   = array();
-    $max_days  = 14;
-    $base_time = strtotime( $date );
+    $results  = array();
+    $max_days = 14;
+    $tz       = wp_timezone();
 
-    if ( ! $base_time ) {
+    try {
+        $base_dt = new DateTime( $date, $tz );
+    } catch ( \Exception $e ) {
         return $results;
     }
 
-    for ( $offset = 0; $offset <= $max_days && count( $results ) < $count; $offset++ ) {
-        // Skip the original date itself (offset 0) — we already know it's empty
-        if ( $offset === 0 ) {
-            continue;
-        }
-
-        $check_date = date( 'Y-m-d', $base_time + $offset * 86400 );
+    for ( $offset = 1; $offset <= $max_days && count( $results ) < $count; $offset++ ) {
+        $check_dt   = clone $base_dt;
+        $check_dt->add( new DateInterval( 'P' . $offset . 'D' ) );
+        $check_date = $check_dt->format( 'Y-m-d' );
         $slots      = echovisie_query_bookly_slots( $service_id, $check_date, $duration_min );
 
         if ( ! empty( $slots ) ) {
             $results[] = array(
                 'date'       => $check_date,
-                'date_label' => date_i18n( 'l j F', strtotime( $check_date ) ),
+                'date_label' => date_i18n( 'l j F', $check_dt->getTimestamp() ),
                 'slot_count' => count( $slots ),
             );
         }
@@ -614,7 +618,7 @@ function echovisie_booking_shortcode() {
                 <div class="ev-step-bar" id="ev-step-bar"></div>
             </div>
 
-            <!-- ============ STEP 0: Zwangerschap ============ -->
+            <!-- ============ STEP 0: Jouw echo ============ -->
             <div class="ev-step-panel" data-step="0">
 
                 <!-- Pregnancy helper -->
@@ -626,18 +630,29 @@ function echovisie_booking_shortcode() {
                         <button type="button" class="ev-preg-toggle" data-preg-type="lmp">Ik weet de eerste dag van mijn laatste menstruatie</button>
                     </div>
                     <div id="ev-preg-date-wrapper" class="ev-preg-date-wrapper" style="display:none">
-                        <input type="date" id="ev-preg-date-input" class="ev-preg-date-input">
+                        <div class="ev-preg-dropdowns">
+                            <select id="ev-preg-day" class="ev-preg-select">
+                                <option value="">Dag</option>
+                                <?php for ( $d = 1; $d <= 31; $d++ ) : ?>
+                                    <option value="<?php echo $d; ?>"><?php echo $d; ?></option>
+                                <?php endfor; ?>
+                            </select>
+                            <select id="ev-preg-month" class="ev-preg-select">
+                                <option value="">Maand</option>
+                                <?php
+                                $nl_months = array( 'januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december' );
+                                for ( $m = 1; $m <= 12; $m++ ) : ?>
+                                    <option value="<?php echo $m; ?>"><?php echo $nl_months[ $m - 1 ]; ?></option>
+                                <?php endfor; ?>
+                            </select>
+                        </div>
+                        <div id="ev-preg-date-error-wrap"></div>
                     </div>
                     <div id="ev-preg-info"></div>
                 </div>
 
-            </div>
-
-            <!-- ============ STEP 1: Aanbod ============ -->
-            <div class="ev-step-panel" data-step="1" style="display:none">
-
-                <!-- Dynamic suggestions based on pregnancy week -->
-                <div class="ev-section ev-suggestions-section">
+                <!-- Dynamic suggestions (hidden until pregnancy date is entered) -->
+                <div id="ev-suggestions-wrapper" class="ev-section ev-suggestions-section" style="display:none">
                     <h3 class="ev-section-title">Onze aanbeveling voor jou</h3>
                     <p class="ev-package-hint">Op basis van je zwangerschapsweek hebben we de beste opties samengesteld</p>
                     <div id="ev-suggestions-container"></div>
@@ -714,8 +729,8 @@ function echovisie_booking_shortcode() {
 
             </div>
 
-            <!-- ============ STEP 2: Planning ============ -->
-            <div class="ev-step-panel" data-step="2" style="display:none">
+            <!-- ============ STEP 1: Afspraak plannen ============ -->
+            <div class="ev-step-panel" data-step="1" style="display:none">
 
                 <!-- Appointment dates -->
                 <div class="ev-section ev-dates-section">
@@ -723,19 +738,15 @@ function echovisie_booking_shortcode() {
                     <div id="ev-dates-container" class="ev-dates-container"></div>
                 </div>
 
-            </div>
-
-            <!-- ============ STEP 3: Tijdslot ============ -->
-            <div class="ev-step-panel" data-step="3" style="display:none">
-
-                <div class="ev-section">
+                <!-- Timeslots (shown inline after dates are filled) -->
+                <div id="ev-timeslots-wrapper" class="ev-section" style="display:none">
                     <h3 class="ev-section-title">Kies een tijdslot</h3>
                     <p class="ev-package-hint">Selecteer een beschikbaar moment bij een van onze echoscopisten</p>
                     <div id="ev-timeslots-container"></div>
                 </div>
 
-                <!-- Customer details -->
-                <div class="ev-section ev-customer-section">
+                <!-- Customer details (shown after timeslot selected) -->
+                <div id="ev-customer-wrapper" class="ev-section ev-customer-section" style="display:none">
                     <h3 class="ev-section-title">Jouw gegevens</h3>
                     <p class="ev-package-hint">Vul je contactgegevens in zodat we je een bevestiging kunnen sturen</p>
                     <div class="ev-customer-fields">
@@ -762,14 +773,14 @@ function echovisie_booking_shortcode() {
 
         </div>
 
-        <!-- Sticky price sidebar -->
-        <div class="ev-sidebar">
+        <!-- Sticky price sidebar (hidden until a package is selected) -->
+        <div class="ev-sidebar" id="ev-sidebar" style="display:none">
             <div class="ev-sidebar-inner">
                 <h3 class="ev-sidebar-title">Prijsoverzicht</h3>
                 <div class="ev-summary" id="ev-summary"></div>
                 <div class="ev-total-bar">
                     <span class="ev-total-label">Totaal</span>
-                    <span class="ev-total-amount" id="ev-total-amount">&euro;10,00</span>
+                    <span class="ev-total-amount" id="ev-total-amount">&euro;0,00</span>
                 </div>
                 <button type="button" class="ev-book-btn" id="ev-book-btn">Afspraak boeken</button>
             </div>

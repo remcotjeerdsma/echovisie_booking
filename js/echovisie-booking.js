@@ -1,6 +1,6 @@
 /**
  * EchoVisie Booking Widget – Interactive logic & pricing engine
- * Step-based wizard with per-appointment configuration
+ * 2-step wizard: "Jouw echo" + "Afspraak plannen"
  */
 (function () {
     'use strict';
@@ -24,8 +24,8 @@
           icon: '\uD83D\uDCCF', desc: 'Groei en ontwikkeling bekijken' }
     ];
 
-    var STEP_LABELS = ['Zwangerschap', 'Aanbod', 'Planning', 'Tijdslot'];
-    var DAYTIME_CUTOFF = '17:00'; // Slots before this time qualify for €10 discount
+    var STEP_LABELS = ['Jouw echo', 'Afspraak plannen'];
+    var DAYTIME_CUTOFF = '17:00';
 
     // Admin-configurable suggestion defaults (loaded from PHP via wp_localize_script)
     var SUGGESTION_CONFIGS = (typeof echovisieBooking !== 'undefined' && echovisieBooking.suggestions) || {
@@ -42,6 +42,8 @@
         packageQty: 1,
         pregType: null,          // 'due' | 'lmp' | null
         pregDate: '',            // YYYY-MM-DD
+        pregDay: '',             // day from dropdown (1-31)
+        pregMonth: '',           // month from dropdown (1-12)
         selectedSuggestion: null, // null | 'custom' | index of chosen suggestion
 
         // Per-appointment configuration
@@ -68,8 +70,8 @@
             duration: 10,
             addons: {},
             date: '',
-            customized: false,   // false = inherits from appointment 0
-            milestone: null      // milestone object if assigned via suggestion
+            customized: false,
+            milestone: null
         };
     }
 
@@ -77,7 +79,6 @@
         if (idx === 0 || state.appointments[idx].customized) {
             return state.appointments[idx];
         }
-        // Inherit from appointment 0, but keep own date
         var base = state.appointments[0];
         return {
             duration: base.duration,
@@ -110,7 +111,7 @@
         if (slot && slot.time) {
             return isDaytimeSlot(slot.time) ? 'working' : 'evening';
         }
-        return 'unknown'; // no slot selected yet
+        return 'unknown';
     }
 
     function standardPrice(duration) {
@@ -201,6 +202,88 @@
     }
 
     /* =========================================================
+       YEAR INFERENCE FOR DAY/MONTH DROPDOWNS
+       ========================================================= */
+    function inferYear(day, month, pregType, now) {
+        var currentYear = now.getFullYear();
+        if (pregType === 'due') {
+            // Due date must be in the future
+            var candidate = new Date(currentYear, month - 1, day);
+            return candidate > now ? currentYear : currentYear + 1;
+        } else {
+            // LMP date must be in the past (within ~9 months)
+            var candidate2 = new Date(currentYear, month - 1, day);
+            return candidate2 <= now ? currentYear : currentYear - 1;
+        }
+    }
+
+    function updatePregDateFromDropdowns() {
+        var dayEl   = document.getElementById('ev-preg-day');
+        var monthEl = document.getElementById('ev-preg-month');
+        if (!dayEl || !monthEl) return;
+
+        var day   = parseInt(dayEl.value, 10);
+        var month = parseInt(monthEl.value, 10);
+
+        state.pregDay = dayEl.value;
+        state.pregMonth = monthEl.value;
+
+        if (!day || !month || !state.pregType) {
+            state.pregDate = '';
+            hideSuggestionsWrapper();
+            renderPregnancy();
+            return;
+        }
+
+        var now  = today();
+        var year = inferYear(day, month, state.pregType, now);
+
+        // Validate day for the given month/year
+        var maxDay = new Date(year, month, 0).getDate();
+        if (day > maxDay) {
+            showPregDropdownError('Deze dag bestaat niet in ' + MONTHS_NL[month - 1] + '.');
+            state.pregDate = '';
+            hideSuggestionsWrapper();
+            return;
+        }
+
+        // Format as YYYY-MM-DD
+        var m = ('0' + month).slice(-2);
+        var d = ('0' + day).slice(-2);
+        state.pregDate = year + '-' + m + '-' + d;
+
+        clearPregDropdownError();
+
+        // Validate the resulting date
+        var error = validatePregDate();
+        if (error) {
+            showPregDropdownError(error);
+            hideSuggestionsWrapper();
+            return;
+        }
+
+        // Reset suggestion when pregnancy info changes
+        state.selectedSuggestion = null;
+        var customEl = document.getElementById('ev-custom-configurator');
+        if (customEl) customEl.style.display = 'none';
+        hideSidebar();
+
+        renderPregnancy();
+        showSuggestionsInline();
+    }
+
+    function showPregDropdownError(msg) {
+        var wrap = document.getElementById('ev-preg-date-error-wrap');
+        if (!wrap) return;
+        wrap.innerHTML = '<div class="ev-preg-error">' + msg + '</div>';
+    }
+
+    function clearPregDropdownError() {
+        var wrap = document.getElementById('ev-preg-date-error-wrap');
+        if (wrap) wrap.innerHTML = '';
+    }
+
+    /* =========================================================
        PREGNANCY DATE VALIDATION
        ========================================================= */
     function validatePregDate() {
@@ -240,7 +323,6 @@
         var lmp = getLmpDate();
         if (!lmp) return null;
         var t = today();
-        // Use Date.UTC to compare pure calendar days (immune to DST shifts)
         var daysDiff = Math.round(
             (Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()) -
              Date.UTC(lmp.getFullYear(), lmp.getMonth(), lmp.getDate())) / DAY_MS
@@ -300,7 +382,6 @@
         var currentWeek = getCurrentWeek();
         if (currentWeek === null) return [];
 
-        // Determine which milestones are still available
         var available = [];
         for (var i = 0; i < MILESTONES.length; i++) {
             if (currentWeek <= MILESTONES[i].weekEnd) {
@@ -309,7 +390,6 @@
         }
         if (available.length === 0) return [];
 
-        // Build suggestion packages: 1 apt, 2 apts, 3 apts (up to available count)
         var packages = [];
         for (var count = 1; count <= available.length; count++) {
             var appointments = [];
@@ -323,7 +403,6 @@
                 });
             }
 
-            // Calculate total price for this package
             var rawTotal = 0;
             for (var k = 0; k < appointments.length; k++) {
                 var apt = appointments[k];
@@ -361,26 +440,27 @@
         return labels[addonId] || addonId;
     }
 
-    function buildIncludedSummary(duration, addonIds) {
-        var items = [];
+    /** Build visual badge data for suggestion cards */
+    function buildIncludedBadges(duration, addonIds) {
+        var badges = [];
         var n2d = included2D(duration);
-        if (n2d > 0) items.push(n2d + ' 2D-beelden');
+        if (n2d > 0) badges.push({ icon: '\uD83D\uDCF7', label: n2d + 'x 2D' });
         var n3d = included3D(duration);
-        if (n3d > 0) items.push(n3d + ' 3D-beelden');
+        if (n3d > 0) badges.push({ icon: '\uD83E\uDD30', label: n3d + 'x 3D' });
         var n4d = included4D(duration);
-        if (n4d > 0) items.push(n4d + ' 4D-video\'s');
-        if (genderAvailable(duration)) items.push('geslachtsbepaling');
+        if (n4d > 0) badges.push({ icon: '\uD83C\uDFAC', label: n4d + 'x 4D' });
+        if (genderAvailable(duration)) badges.push({ icon: '\uD83D\uDC76', label: 'Geslacht' });
         var freeSmall = freeSmallPhotos(duration);
-        if (freeSmall > 0) items.push(freeSmall + ' kleine foto\'s');
-        if (freeLargePhotos(duration) > 0) items.push('1 grote foto');
-        if (recordingFree(duration)) items.push('volledige opname');
-        if (usbFree(duration)) items.push('USB-stick');
-        // Add addon items that aren't already free
+        if (freeSmall > 0) badges.push({ icon: '\uD83D\uDDBC\uFE0F', label: freeSmall + 'x foto' });
+        if (freeLargePhotos(duration) > 0) badges.push({ icon: '\uD83D\uDDBC\uFE0F', label: '1x groot' });
+        if (recordingFree(duration)) badges.push({ icon: '\uD83C\uDFA5', label: 'Opname' });
+        if (usbFree(duration)) badges.push({ icon: '\uD83D\uDD0C', label: 'USB' });
+        // Add non-free addons included in the suggestion
         for (var i = 0; i < addonIds.length; i++) {
-            if (addonIds[i] === 'recording' && !recordingFree(duration)) items.push('volledige opname');
-            if (addonIds[i] === 'usb' && !usbFree(duration)) items.push('USB-stick');
+            if (addonIds[i] === 'recording' && !recordingFree(duration)) badges.push({ icon: '\uD83C\uDFA5', label: 'Opname' });
+            if (addonIds[i] === 'usb' && !usbFree(duration)) badges.push({ icon: '\uD83D\uDD0C', label: 'USB' });
         }
-        return items;
+        return badges;
     }
 
     function renderSuggestions() {
@@ -401,7 +481,11 @@
             for (var i = 0; i < packages.length; i++) {
                 var pkg = packages[i];
                 var isHighlight = packages.length > 1 && i === packages.length - 1;
-                html += '<div class="ev-suggestion-card' + (isHighlight ? ' ev-suggestion-highlight' : '') + '" data-suggestion="' + i + '">';
+                var isSelected = state.selectedSuggestion === i;
+                var cardCls = 'ev-suggestion-card';
+                if (isHighlight) cardCls += ' ev-suggestion-highlight';
+                if (isSelected) cardCls += ' ev-suggestion-selected';
+                html += '<div class="' + cardCls + '" data-suggestion="' + i + '">';
                 if (isHighlight) {
                     html += '<div class="ev-suggestion-badge">Meeste waarde</div>';
                 }
@@ -413,13 +497,16 @@
                     html += '<span class="ev-suggestion-apt-icon">' + apt.milestone.icon + '</span>';
                     html += '<div class="ev-suggestion-apt-info">';
                     html += '<strong>' + apt.milestone.name + '</strong>';
-                    html += '<span class="ev-suggestion-apt-weeks">Week ' + apt.milestone.weekStart + '\u2013' + apt.milestone.weekEnd + '</span>';
-                    html += '<span class="ev-suggestion-apt-detail">' + apt.duration + ' min';
-                    var included = buildIncludedSummary(apt.duration, apt.addons);
-                    if (included.length > 0) {
-                        html += ' \u2014 incl. ' + included.join(', ');
+                    html += '<span class="ev-suggestion-apt-weeks">Week ' + apt.milestone.weekStart + '\u2013' + apt.milestone.weekEnd + ' \u00B7 ' + apt.duration + ' min</span>';
+
+                    // Badge pills instead of comma text
+                    var badges = buildIncludedBadges(apt.duration, apt.addons);
+                    html += '<div class="ev-suggestion-badges">';
+                    for (var b = 0; b < badges.length; b++) {
+                        html += '<span class="ev-badge-pill">' + badges[b].icon + ' ' + badges[b].label + '</span>';
                     }
-                    html += '</span>';
+                    html += '</div>';
+
                     html += '</div>';
                     html += '</div>';
                 }
@@ -432,7 +519,7 @@
                 html += '<span class="ev-suggestion-price-total">' + euro(pkg.total) + '</span>';
                 html += '</div>';
 
-                html += '<button type="button" class="ev-suggestion-choose-btn" data-suggestion="' + i + '">Kies dit' + (pkg.count > 1 ? ' pakket' : '') + '</button>';
+                html += '<button type="button" class="ev-suggestion-choose-btn" data-suggestion="' + i + '">' + (isSelected ? '\u2713 Geselecteerd' : 'Kies dit' + (pkg.count > 1 ? ' pakket' : '')) + '</button>';
                 html += '</div>';
             }
             html += '</div>';
@@ -460,27 +547,26 @@
             var aptCfg = pkg.appointments[i];
             var apt = makeDefaultAppointment();
             apt.duration = aptCfg.duration;
-            apt.customized = true; // Each appointment has its own config
-            apt.milestone = aptCfg.milestone; // Store milestone for date picker
+            apt.customized = true;
+            apt.milestone = aptCfg.milestone;
 
-            // Set addons
             for (var j = 0; j < aptCfg.addons.length; j++) {
                 apt.addons[aptCfg.addons[j]] = { qty: 1 };
             }
-
-            // Also auto-select addons that are free at this duration
             resetAutoSelectionsForApt2(apt);
             state.appointments.push(apt);
         }
 
-        // Hide custom configurator, advance to Planning step
+        // Hide custom configurator
         var customEl = document.getElementById('ev-custom-configurator');
         if (customEl) customEl.style.display = 'none';
-        setStep(2);
+
+        // Stay on step 0, highlight the card, show sidebar
+        renderSuggestions();
+        showSidebar();
         renderSummary();
     }
 
-    // Version of resetAutoSelectionsForApt that works on an appointment object directly
     function resetAutoSelectionsForApt2(apt) {
         var addons = buildAddons(apt.duration);
         for (var i = 0; i < addons.length; i++) {
@@ -493,29 +579,93 @@
 
     function showCustomConfigurator() {
         state.selectedSuggestion = 'custom';
-
-        // Reset to default single appointment
         state.packageQty = 1;
         state.appointments = [makeDefaultAppointment()];
 
         var customEl = document.getElementById('ev-custom-configurator');
         if (customEl) customEl.style.display = '';
 
-        // Show appointment configs section only for multi-appointment packages
         var aptCfgSection = document.getElementById('ev-custom-apt-configs-section');
         if (aptCfgSection) aptCfgSection.style.display = 'none';
 
-        // Re-render configurator
         renderIncludedGrid();
         renderAddons();
+        showSidebar();
         renderSummary();
+        renderSuggestions();
 
-        // Re-bind slider
         var slider = document.getElementById('ev-duration-slider');
         if (slider) {
             slider.value = state.appointments[0].duration;
             var durationLabel = document.getElementById('ev-duration-value');
             if (durationLabel) durationLabel.textContent = state.appointments[0].duration;
+        }
+    }
+
+    /* =========================================================
+       INLINE SUGGESTIONS & SIDEBAR VISIBILITY
+       ========================================================= */
+    function showSuggestionsInline() {
+        var wrapper = document.getElementById('ev-suggestions-wrapper');
+        if (!wrapper) return;
+        wrapper.style.display = '';
+        wrapper.classList.add('ev-section-reveal');
+        renderSuggestions();
+    }
+
+    function hideSuggestionsWrapper() {
+        var wrapper = document.getElementById('ev-suggestions-wrapper');
+        if (wrapper) wrapper.style.display = 'none';
+    }
+
+    function showSidebar() {
+        var sidebar = document.getElementById('ev-sidebar');
+        if (sidebar) {
+            sidebar.style.display = '';
+            sidebar.classList.add('ev-sidebar-visible');
+        }
+    }
+
+    function hideSidebar() {
+        var sidebar = document.getElementById('ev-sidebar');
+        if (sidebar) sidebar.style.display = 'none';
+    }
+
+    /* =========================================================
+       INLINE TIMESLOTS (auto-fetch when all dates filled)
+       ========================================================= */
+    function checkAndFetchTimeslots() {
+        var allDatesSet = true;
+        for (var i = 0; i < state.packageQty; i++) {
+            if (!state.appointments[i].date) {
+                allDatesSet = false;
+                break;
+            }
+        }
+
+        var wrapper = document.getElementById('ev-timeslots-wrapper');
+        if (wrapper) {
+            wrapper.style.display = allDatesSet ? '' : 'none';
+        }
+
+        if (allDatesSet) {
+            fetchAvailableSlots();
+        }
+    }
+
+    function checkAndShowCustomerFields() {
+        var allSlotsSelected = true;
+        for (var k = 0; k < state.packageQty; k++) {
+            if (!state.selectedSlots[k]) { allSlotsSelected = false; break; }
+        }
+        var custWrapper = document.getElementById('ev-customer-wrapper');
+        if (custWrapper) {
+            if (allSlotsSelected) {
+                custWrapper.style.display = '';
+                custWrapper.classList.add('ev-section-reveal');
+            } else {
+                custWrapper.style.display = 'none';
+            }
         }
     }
 
@@ -708,13 +858,9 @@
 
     function validateStep(step) {
         if (step === 0) {
-            // Must have pregnancy data filled in
             if (!state.pregType || !state.pregDate) return 'Vul je datum in om verder te gaan.';
             var error = validatePregDate();
             if (error) return error;
-        }
-        if (step === 1) {
-            // Must have chosen a suggestion or custom config
             if (state.selectedSuggestion === null) return 'Kies een aanbeveling of stel zelf samen.';
         }
         return null;
@@ -742,13 +888,11 @@
         renderStepBar();
         renderStepNav();
 
-        // Re-render step content when switching
         if (step === 0) {
             renderPregnancy();
-        }
-        if (step === 1) {
-            renderSuggestions();
-            // If custom configurator was active, keep it visible
+            if (state.pregDate && !validatePregDate()) {
+                showSuggestionsInline();
+            }
             if (state.selectedSuggestion === 'custom') {
                 var customEl = document.getElementById('ev-custom-configurator');
                 if (customEl) customEl.style.display = '';
@@ -756,16 +900,14 @@
                 renderAddons();
             }
         }
-        if (step === 2) {
+        if (step === 1) {
             renderDatePickers();
-        }
-        if (step === 3) {
-            fetchAvailableSlots();
+            checkAndFetchTimeslots();
+            checkAndShowCustomerFields();
         }
     }
 
     function showStepError(message) {
-        // Show a temporary error notification
         var existing = document.querySelector('.ev-step-error');
         if (existing) existing.remove();
         var errEl = document.createElement('div');
@@ -777,7 +919,7 @@
     }
 
     /* =========================================================
-       CONFIGURATOR RENDERERS (used in custom flow, step 1)
+       CONFIGURATOR RENDERERS (used in custom flow, step 0)
        ========================================================= */
     function renderIncludedGrid() {
         var container = document.getElementById('ev-included-grid');
@@ -863,21 +1005,17 @@
             html += '<div class="ev-apt-card-header">';
             html += '<span class="ev-apt-card-number">' + (i + 1) + '</span>';
             html += '<span class="ev-apt-card-title">Afspraak ' + (i + 1) + '</span>';
-
-            // Show summary of config
             html += '<span class="ev-apt-card-summary">' + cfg.duration + ' min';
             html += ' &middot; vanaf ' + euro(standardPrice(cfg.duration)) + '</span>';
             html += '</div>';
 
             if (i > 0) {
-                // Toggle: same as apt 1 OR customize
                 html += '<div class="ev-apt-toggle-bar">';
                 html += '<button type="button" class="ev-apt-toggle-btn' + (!apt.customized ? ' active' : '') + '" data-apt="' + i + '" data-action="inherit">Zelfde als afspraak 1</button>';
                 html += '<button type="button" class="ev-apt-toggle-btn' + (apt.customized ? ' active' : '') + '" data-apt="' + i + '" data-action="customize">Aanpassen</button>';
                 html += '</div>';
             }
 
-            // Show mini-configurator if appointment 0 or customized
             if (i === 0 || apt.customized) {
                 html += renderMiniConfigurator(i, cfg);
             }
@@ -887,7 +1025,6 @@
 
         container.innerHTML = html;
 
-        // Bind mini-configurator sliders
         for (var j = 0; j < state.packageQty; j++) {
             if (j === 0 || state.appointments[j].customized) {
                 bindMiniSlider(j);
@@ -898,7 +1035,6 @@
     function renderMiniConfigurator(aptIdx, cfg) {
         var html = '<div class="ev-apt-mini-config" data-apt="' + aptIdx + '">';
 
-        // Duration slider
         html += '<div class="ev-apt-mini-row">';
         html += '<label class="ev-label">Duur</label>';
         html += '<div class="ev-slider-wrap">';
@@ -910,7 +1046,6 @@
         html += '<div class="ev-duration-display"><span class="ev-mini-duration-val" data-apt="' + aptIdx + '">' + cfg.duration + '</span> minuten</div>';
         html += '</div>';
 
-        // Addons
         var addons = buildAddons(cfg.duration);
         html += '<div class="ev-apt-mini-row">';
         html += '<label class="ev-label">Extra opties</label>';
@@ -920,7 +1055,6 @@
             var addonState = cfg.addons[a.id] || { qty: 0 };
             if (a.autoSelected && !cfg.addons[a.id]) {
                 cfg.addons[a.id] = { qty: 1 };
-                // If this is a real appointment (idx 0 or customized), also write to state
                 if (aptIdx === 0 || state.appointments[aptIdx].customized) {
                     state.appointments[aptIdx].addons[a.id] = { qty: 1 };
                 }
@@ -974,7 +1108,6 @@
     function sessionPriceForApt(aptIdx) {
         var cfg = getEffectiveConfig(aptIdx);
         var ts = getTimeSlotForApt(aptIdx);
-        // If no slot selected yet, use standard (evening) price
         var base = sessionPrice(cfg.duration, ts === 'unknown' ? 'evening' : ts);
         var addonsTotal = 0;
         var addons = buildAddons(cfg.duration);
@@ -989,7 +1122,7 @@
     }
 
     /* =========================================================
-       STEP 0 – PREGNANCY INFO & STEP 2 – DATE PICKERS
+       STEP 0 – PREGNANCY INFO & STEP 1 – DATE PICKERS
        ========================================================= */
     function renderPregnancy() {
         var infoEl = document.getElementById('ev-preg-info');
@@ -1064,7 +1197,6 @@
         var minDate = formatDateISO(addDays(today(), 1));
         var html = '';
 
-        // Build date suggestions: use milestone from appointment if available, else fallback
         var fallbackSuggestions = suggestAppointmentDates(qty);
 
         for (var i = 0; i < qty; i++) {
@@ -1073,7 +1205,6 @@
                 ? 'Kies je afspraakdatum'
                 : 'Afspraak ' + (i + 1);
 
-            // Determine suggestion: from assigned milestone or fallback
             var sug = null;
             if (apt.milestone && currentWeek !== null) {
                 var ms = apt.milestone;
@@ -1121,10 +1252,9 @@
     }
 
     /* =========================================================
-       STEP 3 – TIMESLOT SELECTION & BOOKING
+       TIMESLOT SELECTION & BOOKING (step 1 inline)
        ========================================================= */
     function fetchAvailableSlots() {
-
         state.slotsLoading = true;
         state.slotsError = null;
         renderTimeslots();
@@ -1152,7 +1282,6 @@
             .then(function (resp) {
                 state.slotsLoading = false;
                 if (resp.success && resp.data && resp.data.slots) {
-                    // Parse new structure: { aptIdx: { slots: [...], alternatives: [...] } }
                     state.availableSlots = {};
                     state.alternativeDates = {};
                     var rawSlots = resp.data.slots;
@@ -1160,7 +1289,6 @@
                         if (rawSlots.hasOwnProperty(key)) {
                             var entry = rawSlots[key];
                             if (Array.isArray(entry)) {
-                                // Legacy format (plain array)
                                 state.availableSlots[key] = entry;
                                 state.alternativeDates[key] = [];
                             } else {
@@ -1204,7 +1332,6 @@
             return;
         }
 
-        // Render fetched slots from Bookly
         for (var i = 0; i < state.packageQty; i++) {
             var aptLive = state.appointments[i];
             var cfgLive = getEffectiveConfig(i);
@@ -1219,16 +1346,15 @@
             var alts = state.alternativeDates[i] || [];
 
             if (!aptLive.date) {
-                html += '<p class="ev-slot-no-date">Kies eerst een gewenste datum in de vorige stap</p>';
+                html += '<p class="ev-slot-no-date">Kies eerst een gewenste datum hierboven</p>';
             } else if (slots.length === 0) {
                 var origDate = parseDate(aptLive.date);
                 html += '<p class="ev-slot-no-date">Geen beschikbare tijdsloten op <strong>' + formatDateNL(origDate) + '</strong>.</p>';
 
-                // Show alternative dates if available
                 if (alts.length > 0) {
                     html += renderAlternatives(i, alts);
                 } else {
-                    html += '<p class="ev-slot-no-date" style="margin-top:.5rem;">Er zijn de komende 14 dagen geen beschikbare tijdsloten gevonden. Kies een andere datum in de vorige stap.</p>';
+                    html += '<p class="ev-slot-no-date" style="margin-top:.5rem;">Er zijn de komende 14 dagen geen beschikbare tijdsloten gevonden. Kies een andere datum.</p>';
                 }
             } else {
                 var dateObj2 = parseDate(aptLive.date);
@@ -1283,7 +1409,6 @@
         var emailEl = document.getElementById('ev-customer-email');
         var phoneEl = document.getElementById('ev-customer-phone');
 
-        // Read current values from inputs
         if (nameEl) state.customerName = nameEl.value.trim();
         if (emailEl) state.customerEmail = emailEl.value.trim();
         if (phoneEl) state.customerPhone = phoneEl.value.trim();
@@ -1294,7 +1419,6 @@
         }
         if (!state.customerPhone) errors.push('Vul je telefoonnummer in.');
 
-        // Toggle error class on fields
         if (nameEl) nameEl.classList.toggle('has-error', !state.customerName);
         if (emailEl) emailEl.classList.toggle('has-error', !state.customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.customerEmail));
         if (phoneEl) phoneEl.classList.toggle('has-error', !state.customerPhone);
@@ -1394,7 +1518,6 @@
             var dateStr = state.appointments[i].date;
             var dateObj = parseDate(dateStr);
 
-            // Use server data if available, else fall back to local state
             var staffName = slot.staff || '';
             var dateLabel = dateObj ? formatDateNL(dateObj) : dateStr;
             if (serverApts && serverApts[i]) {
@@ -1409,7 +1532,7 @@
             html += '</div>';
             html += '<div class="ev-apt-mini-config">';
             html += '<p style="margin:.4rem 0;font-size:.88rem;"><strong>Datum:</strong> ' + dateLabel + '</p>';
-            html += '<p style="margin:.4rem 0;font-size:.88rem;"><strong>Tijd:</strong> ' + (slot.time || '–') + '</p>';
+            html += '<p style="margin:.4rem 0;font-size:.88rem;"><strong>Tijd:</strong> ' + (slot.time || '\u2013') + '</p>';
             html += '<p style="margin:.4rem 0;font-size:.88rem;"><strong>Duur:</strong> ' + cfg.duration + ' minuten</p>';
             if (staffName) {
                 html += '<p style="margin:.4rem 0;font-size:.88rem;"><strong>Echoscopist:</strong> ' + staffName + '</p>';
@@ -1427,7 +1550,6 @@
 
         wrapper.innerHTML = html;
 
-        // Hide the sidebar book button
         var sidebar = document.querySelector('.ev-sidebar');
         if (sidebar) sidebar.style.display = 'none';
     }
@@ -1522,21 +1644,21 @@
 
         if (state.currentStep === 0) {
             renderPregnancy();
-        }
-        if (state.currentStep === 1) {
-            renderSuggestions();
+            if (state.pregDate && !validatePregDate()) {
+                showSuggestionsInline();
+            }
             if (state.selectedSuggestion === 'custom') {
                 renderIncludedGrid();
                 renderAddons();
             }
         }
-        if (state.currentStep === 2) {
+        if (state.currentStep === 1) {
             renderDatePickers();
-        }
-        if (state.currentStep === 3) {
             renderTimeslots();
         }
-        renderSummary();
+        if (state.selectedSuggestion !== null) {
+            renderSummary();
+        }
     }
 
     /* =========================================================
@@ -1610,10 +1732,9 @@
         var bookingEl = document.getElementById('echovisie-booking');
         if (!bookingEl) return;
 
-        // Initialize step display
         setStep(0);
 
-        // Duration slider (inside custom configurator in step 1)
+        // Duration slider (inside custom configurator in step 0)
         var slider = document.getElementById('ev-duration-slider');
         var durationLabel = document.getElementById('ev-duration-value');
         if (slider) {
@@ -1625,7 +1746,6 @@
                 renderAddons();
                 renderSummary();
 
-                // Show/hide per-appointment configs for multi-appointment custom packages
                 var aptCfgSection = document.getElementById('ev-custom-apt-configs-section');
                 if (aptCfgSection && state.packageQty > 1) {
                     aptCfgSection.style.display = '';
@@ -1642,7 +1762,6 @@
                 state.packageQty = parseInt(this.getAttribute('data-qty'), 10);
                 syncAppointmentCount();
 
-                // Show/hide per-appointment configs
                 var aptCfgSection = document.getElementById('ev-custom-apt-configs-section');
                 if (aptCfgSection) {
                     aptCfgSection.style.display = state.packageQty > 1 ? '' : 'none';
@@ -1660,11 +1779,10 @@
             });
         }
 
-        // Per-appointment configs delegated events (inside custom configurator)
+        // Per-appointment configs delegated events
         var aptConfigs = document.getElementById('ev-apt-configs');
         if (aptConfigs) {
             aptConfigs.addEventListener('click', function (e) {
-                // Inherit / Customize toggle
                 var toggleBtn = e.target.closest('.ev-apt-toggle-btn');
                 if (toggleBtn) {
                     var aptIdx = parseInt(toggleBtn.getAttribute('data-apt'), 10);
@@ -1673,7 +1791,6 @@
                         state.appointments[aptIdx].customized = false;
                     } else if (action === 'customize') {
                         if (!state.appointments[aptIdx].customized) {
-                            // Deep copy from appointment 0
                             var src = state.appointments[0];
                             state.appointments[aptIdx].duration = src.duration;
                             state.appointments[aptIdx].addons = deepCopyAddons(src.addons);
@@ -1685,16 +1802,14 @@
                     return;
                 }
 
-                // Addon clicks inside mini-config
                 handleAddonClick(e, aptConfigs);
             });
         }
 
-        // Suggestions container (step 1, delegated)
+        // Suggestions container (step 0, delegated)
         var suggestionsContainer = document.getElementById('ev-suggestions-container');
         if (suggestionsContainer) {
             suggestionsContainer.addEventListener('click', function (e) {
-                // Choose suggestion button
                 var chooseBtn = e.target.closest('.ev-suggestion-choose-btn');
                 if (chooseBtn) {
                     var sugIdx = parseInt(chooseBtn.getAttribute('data-suggestion'), 10);
@@ -1702,7 +1817,6 @@
                     return;
                 }
 
-                // Clicking on a suggestion card also selects it
                 var card = e.target.closest('.ev-suggestion-card');
                 if (card && !e.target.closest('.ev-suggestion-choose-btn')) {
                     var cardIdx = parseInt(card.getAttribute('data-suggestion'), 10);
@@ -1710,7 +1824,6 @@
                     return;
                 }
 
-                // "Zelf samenstellen" button
                 if (e.target.id === 'ev-custom-btn' || e.target.closest('#ev-custom-btn')) {
                     showCustomConfigurator();
                 }
@@ -1741,52 +1854,42 @@
                 var wrapper = document.getElementById('ev-preg-date-wrapper');
                 if (wrapper) wrapper.style.display = '';
 
-                // Reset suggestion when pregnancy info changes
+                // Reset suggestions and sidebar
                 state.selectedSuggestion = null;
                 var customEl = document.getElementById('ev-custom-configurator');
                 if (customEl) customEl.style.display = 'none';
+                hideSuggestionsWrapper();
+                hideSidebar();
+                clearPregDropdownError();
 
-                renderPregnancy();
+                // If day/month already selected, re-calculate
+                if (state.pregDay && state.pregMonth) {
+                    updatePregDateFromDropdowns();
+                } else {
+                    renderPregnancy();
+                }
             });
         });
 
-        // Pregnancy date input (step 0)
-        var pregInput = document.getElementById('ev-preg-date-input');
-        if (pregInput) {
-            pregInput.addEventListener('change', function () {
-                state.pregDate = this.value;
-                var error = validatePregDate();
-                var errorEl = document.getElementById('ev-preg-date-error');
-                if (error) {
-                    this.classList.add('has-error');
-                    if (!errorEl) {
-                        errorEl = document.createElement('div');
-                        errorEl.id = 'ev-preg-date-error';
-                        errorEl.className = 'ev-preg-error';
-                        this.parentNode.appendChild(errorEl);
-                    }
-                    errorEl.textContent = error;
-                } else {
-                    this.classList.remove('has-error');
-                    if (errorEl) errorEl.remove();
-                }
-
-                // Reset suggestion when pregnancy info changes
-                state.selectedSuggestion = null;
-                var customEl = document.getElementById('ev-custom-configurator');
-                if (customEl) customEl.style.display = 'none';
-
-                renderPregnancy();
-            });
+        // Pregnancy day/month dropdown handlers (step 0)
+        var pregDay = document.getElementById('ev-preg-day');
+        var pregMonth = document.getElementById('ev-preg-month');
+        if (pregDay) {
+            pregDay.addEventListener('change', updatePregDateFromDropdowns);
+        }
+        if (pregMonth) {
+            pregMonth.addEventListener('change', updatePregDateFromDropdowns);
         }
 
-        // Appointment date inputs (step 2, delegated)
+        // Appointment date inputs (step 1, delegated)
         var datesContainer = document.getElementById('ev-dates-container');
         if (datesContainer) {
             datesContainer.addEventListener('change', function (e) {
                 if (e.target.classList.contains('ev-date-input')) {
                     var idx = parseInt(e.target.getAttribute('data-idx'), 10);
                     state.appointments[idx].date = e.target.value;
+                    delete state.selectedSlots[idx];
+                    checkAndFetchTimeslots();
                 }
             });
             datesContainer.addEventListener('click', function (e) {
@@ -1795,11 +1898,13 @@
                 var idx = parseInt(btn.getAttribute('data-idx'), 10);
                 var date = btn.getAttribute('data-date');
                 state.appointments[idx].date = date;
+                delete state.selectedSlots[idx];
                 renderDatePickers();
+                checkAndFetchTimeslots();
             });
         }
 
-        // Timeslot selection (step 3, delegated)
+        // Timeslot selection (step 1, delegated)
         var timeslotsContainer = document.getElementById('ev-timeslots-container');
         if (timeslotsContainer) {
             timeslotsContainer.addEventListener('click', function (e) {
@@ -1813,23 +1918,20 @@
                     };
                     renderTimeslots();
                     renderSummary();
+                    checkAndShowCustomerFields();
                     return;
                 }
 
-                // Alternative date button – switch appointment date and re-fetch
                 var altBtn = e.target.closest('.ev-alt-date-btn');
                 if (altBtn) {
                     var altAptIdx = parseInt(altBtn.getAttribute('data-apt'), 10);
                     var altDate = altBtn.getAttribute('data-date');
                     state.appointments[altAptIdx].date = altDate;
-                    // Clear any previous selection for this appointment
                     delete state.selectedSlots[altAptIdx];
-                    // Re-fetch slots with the new date
                     fetchAvailableSlots();
                     return;
                 }
 
-                // Retry button
                 if (e.target.id === 'ev-retry-slots' || e.target.closest('#ev-retry-slots')) {
                     fetchAvailableSlots();
                 }
