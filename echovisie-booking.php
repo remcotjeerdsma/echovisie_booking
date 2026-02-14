@@ -105,9 +105,26 @@ function echovisie_enqueue_assets() {
             true
         );
 
+        $settings = get_option( 'echovisie_settings', echovisie_default_settings() );
+        $suggestions = array(
+            'gender' => array(
+                'duration' => absint( $settings['suggestion_gender_duration'] ?? 20 ),
+                'addons'   => array_filter( explode( ',', $settings['suggestion_gender_addons'] ?? 'usb' ) ),
+            ),
+            'pretecho' => array(
+                'duration' => absint( $settings['suggestion_pretecho_duration'] ?? 40 ),
+                'addons'   => array_filter( explode( ',', $settings['suggestion_pretecho_addons'] ?? 'recording' ) ),
+            ),
+            'growth' => array(
+                'duration' => absint( $settings['suggestion_growth_duration'] ?? 30 ),
+                'addons'   => array_filter( explode( ',', $settings['suggestion_growth_addons'] ?? 'recording' ) ),
+            ),
+        );
+
         wp_localize_script( 'echovisie-booking-js', 'echovisieBooking', array(
-            'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-            'nonce'   => wp_create_nonce( 'echovisie_book' ),
+            'ajaxUrl'     => admin_url( 'admin-ajax.php' ),
+            'nonce'       => wp_create_nonce( 'echovisie_book' ),
+            'suggestions' => $suggestions,
         ) );
     }
 }
@@ -588,8 +605,8 @@ function echovisie_booking_shortcode() {
 
             <!-- Header -->
             <div class="ev-header">
-                <h2 class="ev-title">Stel jouw echo samen</h2>
-                <p class="ev-subtitle">Configureer je echo in een paar eenvoudige stappen</p>
+                <h2 class="ev-title">Plan jouw echo</h2>
+                <p class="ev-subtitle">Vertel ons over je zwangerschap en ontvang een persoonlijk advies</p>
             </div>
 
             <!-- Step bar -->
@@ -597,81 +614,8 @@ function echovisie_booking_shortcode() {
                 <div class="ev-step-bar" id="ev-step-bar"></div>
             </div>
 
-            <!-- ============ STEP 0: Samenstellen ============ -->
+            <!-- ============ STEP 0: Zwangerschap ============ -->
             <div class="ev-step-panel" data-step="0">
-
-                <!-- Duration slider -->
-                <div class="ev-section ev-duration-section">
-                    <label class="ev-label" for="ev-duration-slider">Duur van de echo</label>
-                    <div class="ev-slider-wrap">
-                        <input type="range" id="ev-duration-slider" min="10" max="60" step="10" value="10">
-                        <div class="ev-slider-labels" aria-hidden="true">
-                            <span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span>
-                        </div>
-                    </div>
-                    <div class="ev-duration-display"><span id="ev-duration-value">10</span> minuten</div>
-                </div>
-
-                <!-- Daytime discount info -->
-                <div class="ev-section ev-time-section">
-                    <div class="ev-daytime-info">
-                        <span class="ev-daytime-info-icon">&#9728;&#65039;</span>
-                        <div class="ev-daytime-info-text">
-                            <strong>&euro;10 korting overdag</strong>
-                            <span>Kies je een tijdslot v&oacute;&oacute;r 17:00? Dan krijg je automatisch &euro;10 korting op de sessieprijs!</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Included features -->
-                <div class="ev-section ev-included-section">
-                    <h3 class="ev-section-title">Inbegrepen bij jouw keuze</h3>
-                    <div class="ev-included-grid" id="ev-included-grid"></div>
-                </div>
-
-                <!-- Optional add-ons -->
-                <div class="ev-section ev-addons-section">
-                    <h3 class="ev-section-title">Extra opties</h3>
-                    <div class="ev-addons-list" id="ev-addons-list"></div>
-                </div>
-
-                <!-- Package discount -->
-                <div class="ev-section ev-package-section">
-                    <h3 class="ev-section-title">Afsprakenpakket</h3>
-                    <p class="ev-package-hint">Boek meerdere afspraken tegelijk en bespaar!</p>
-                    <div class="ev-package-options">
-                        <button type="button" class="ev-package-btn active" data-qty="1">
-                            <span class="ev-package-qty">1</span>
-                            <span class="ev-package-label">Enkele afspraak</span>
-                        </button>
-                        <button type="button" class="ev-package-btn" data-qty="2">
-                            <span class="ev-package-qty">2</span>
-                            <span class="ev-package-label">Afspraken</span>
-                            <span class="ev-package-discount">&minus;10%</span>
-                        </button>
-                        <button type="button" class="ev-package-btn" data-qty="3">
-                            <span class="ev-package-qty">3</span>
-                            <span class="ev-package-label">Afspraken</span>
-                            <span class="ev-package-discount">&minus;20%</span>
-                        </button>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- ============ STEP 1: Afspraken ============ -->
-            <div class="ev-step-panel" data-step="1" style="display:none">
-
-                <div class="ev-section">
-                    <h3 class="ev-section-title">Jouw afspraken</h3>
-                    <p class="ev-package-hint">Controleer en pas eventueel individuele afspraken aan</p>
-                    <div id="ev-apt-configs"></div>
-                </div>
-
-            </div>
-
-            <!-- ============ STEP 2: Planning ============ -->
-            <div class="ev-step-panel" data-step="2" style="display:none">
 
                 <!-- Pregnancy helper -->
                 <div class="ev-section ev-preg-section">
@@ -686,6 +630,92 @@ function echovisie_booking_shortcode() {
                     </div>
                     <div id="ev-preg-info"></div>
                 </div>
+
+            </div>
+
+            <!-- ============ STEP 1: Aanbod ============ -->
+            <div class="ev-step-panel" data-step="1" style="display:none">
+
+                <!-- Dynamic suggestions based on pregnancy week -->
+                <div class="ev-section ev-suggestions-section">
+                    <h3 class="ev-section-title">Onze aanbeveling voor jou</h3>
+                    <p class="ev-package-hint">Op basis van je zwangerschapsweek hebben we de beste opties samengesteld</p>
+                    <div id="ev-suggestions-container"></div>
+                </div>
+
+                <!-- Custom configurator (hidden by default, shown when "Zelf samenstellen" is clicked) -->
+                <div id="ev-custom-configurator" class="ev-custom-configurator" style="display:none">
+
+                    <!-- Duration slider -->
+                    <div class="ev-section ev-duration-section">
+                        <label class="ev-label" for="ev-duration-slider">Duur van de echo</label>
+                        <div class="ev-slider-wrap">
+                            <input type="range" id="ev-duration-slider" min="10" max="60" step="10" value="10">
+                            <div class="ev-slider-labels" aria-hidden="true">
+                                <span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>60</span>
+                            </div>
+                        </div>
+                        <div class="ev-duration-display"><span id="ev-duration-value">10</span> minuten</div>
+                    </div>
+
+                    <!-- Daytime discount info -->
+                    <div class="ev-section ev-time-section">
+                        <div class="ev-daytime-info">
+                            <span class="ev-daytime-info-icon">&#9728;&#65039;</span>
+                            <div class="ev-daytime-info-text">
+                                <strong>&euro;10 korting overdag</strong>
+                                <span>Kies je een tijdslot v&oacute;&oacute;r 17:00? Dan krijg je automatisch &euro;10 korting op de sessieprijs!</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Included features -->
+                    <div class="ev-section ev-included-section">
+                        <h3 class="ev-section-title">Inbegrepen bij jouw keuze</h3>
+                        <div class="ev-included-grid" id="ev-included-grid"></div>
+                    </div>
+
+                    <!-- Optional add-ons -->
+                    <div class="ev-section ev-addons-section">
+                        <h3 class="ev-section-title">Extra opties</h3>
+                        <div class="ev-addons-list" id="ev-addons-list"></div>
+                    </div>
+
+                    <!-- Package discount -->
+                    <div class="ev-section ev-package-section">
+                        <h3 class="ev-section-title">Afsprakenpakket</h3>
+                        <p class="ev-package-hint">Boek meerdere afspraken tegelijk en bespaar!</p>
+                        <div class="ev-package-options">
+                            <button type="button" class="ev-package-btn active" data-qty="1">
+                                <span class="ev-package-qty">1</span>
+                                <span class="ev-package-label">Enkele afspraak</span>
+                            </button>
+                            <button type="button" class="ev-package-btn" data-qty="2">
+                                <span class="ev-package-qty">2</span>
+                                <span class="ev-package-label">Afspraken</span>
+                                <span class="ev-package-discount">&minus;10%</span>
+                            </button>
+                            <button type="button" class="ev-package-btn" data-qty="3">
+                                <span class="ev-package-qty">3</span>
+                                <span class="ev-package-label">Afspraken</span>
+                                <span class="ev-package-discount">&minus;20%</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Per-appointment configs (for multi-appointment custom packages) -->
+                    <div class="ev-section" id="ev-custom-apt-configs-section" style="display:none">
+                        <h3 class="ev-section-title">Jouw afspraken</h3>
+                        <p class="ev-package-hint">Controleer en pas eventueel individuele afspraken aan</p>
+                        <div id="ev-apt-configs"></div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- ============ STEP 2: Planning ============ -->
+            <div class="ev-step-panel" data-step="2" style="display:none">
 
                 <!-- Appointment dates -->
                 <div class="ev-section ev-dates-section">
