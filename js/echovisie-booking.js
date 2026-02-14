@@ -561,10 +561,10 @@
         var customEl = document.getElementById('ev-custom-configurator');
         if (customEl) customEl.style.display = 'none';
 
-        // Stay on step 0, highlight the card, show sidebar
-        renderSuggestions();
+        // Show sidebar + summary, then auto-advance to step 1
         showSidebar();
         renderSummary();
+        setStep(1);
     }
 
     function resetAutoSelectionsForApt2(apt) {
@@ -593,6 +593,7 @@
         showSidebar();
         renderSummary();
         renderSuggestions();
+        renderStepNav(); // Show "Volgende" button for custom configurator
 
         var slider = document.getElementById('ev-duration-slider');
         if (slider) {
@@ -848,7 +849,12 @@
         } else {
             html += '<span></span>';
         }
-        if (state.currentStep < STEP_LABELS.length - 1) {
+
+        // Step 0: no "Volgende" button — auto-advance happens when user picks a suggestion
+        // Only show "Volgende" for custom configurator (selectedSuggestion === 'custom')
+        if (state.currentStep === 0 && state.selectedSuggestion === 'custom') {
+            html += '<button type="button" class="ev-step-next-btn" id="ev-next-btn">Volgende &rarr;</button>';
+        } else if (state.currentStep > 0 && state.currentStep < STEP_LABELS.length - 1) {
             html += '<button type="button" class="ev-step-next-btn" id="ev-next-btn">Volgende &rarr;</button>';
         } else {
             html += '<span></span>';
@@ -858,7 +864,8 @@
 
     function validateStep(step) {
         if (step === 0) {
-            if (!state.pregType || !state.pregDate) return 'Vul je datum in om verder te gaan.';
+            if (!state.pregType) return 'Kies eerst je datumtype (uitgerekende datum of laatste menstruatie).';
+            if (!state.pregDate) return 'Vul je dag en maand in om verder te gaan.';
             var error = validatePregDate();
             if (error) return error;
             if (state.selectedSuggestion === null) return 'Kies een aanbeveling of stel zelf samen.';
