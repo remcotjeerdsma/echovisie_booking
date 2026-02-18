@@ -250,11 +250,13 @@
         // Format as YYYY-MM-DD
         var m = ('0' + month).slice(-2);
         var d = ('0' + day).slice(-2);
-        state.pregDate = year + '-' + m + '-' + d;
+        var newDate = year + '-' + m + '-' + d;
 
         clearPregDropdownError();
 
         // Validate the resulting date
+        var prevDate = state.pregDate;
+        state.pregDate = newDate;
         var error = validatePregDate();
         if (error) {
             showPregDropdownError(error);
@@ -262,11 +264,13 @@
             return;
         }
 
-        // Reset suggestion when pregnancy info changes
-        state.selectedSuggestion = null;
-        var customEl = document.getElementById('ev-custom-configurator');
-        if (customEl) customEl.style.display = 'none';
-        hideSidebar();
+        // Only reset suggestion when pregnancy date actually changes
+        if (newDate !== prevDate) {
+            state.selectedSuggestion = null;
+            var customEl = document.getElementById('ev-custom-configurator');
+            if (customEl) customEl.style.display = 'none';
+            hideSidebar();
+        }
 
         renderPregnancy();
         showSuggestionsInline();
