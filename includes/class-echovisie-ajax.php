@@ -226,14 +226,16 @@ class EchoVisie_Ajax {
             wp_send_json_error( array( 'message' => 'Geen afspraakgegevens ontvangen.' ) );
         }
 
-        // Check Bookly
-        if ( ! class_exists( '\Bookly\Lib\Entities\Appointment' ) ) {
+        // Check Bookly classes required for the proper booking flow.
+        if ( ! class_exists( '\Bookly\Lib\UserBookingData' )
+            || ! class_exists( '\Bookly\Lib\CartItem' )
+            || ! class_exists( '\Bookly\Lib\Entities\Appointment' ) ) {
             wp_send_json_error( array( 'message' => 'Bookly plugin is niet actief.' ) );
         }
 
         $s = get_option( 'echovisie_settings', echovisie_default_settings() );
 
-        // Customer data
+        // Customer data.
         $first_name = sanitize_text_field( $data['customer']['first_name'] ?? '' );
         $last_name  = sanitize_text_field( $data['customer']['last_name'] ?? '' );
         $email      = sanitize_email( $data['customer']['email'] ?? '' );
@@ -244,23 +246,19 @@ class EchoVisie_Ajax {
             wp_send_json_error( array( 'message' => 'Vul alle verplichte velden in.' ) );
         }
 
-        // Pregnancy data
+        // Pregnancy data.
         $preg_type = sanitize_text_field( $data['pregnancy']['type'] ?? '' );
         $preg_date = sanitize_text_field( $data['pregnancy']['date'] ?? '' );
         $preg_week = intval( $data['pregnancy']['week'] ?? 0 );
 
-        // Verify pricing server-side
+        // Verify pricing server-side.
         $price_check = EchoVisie_Pricing::calculate_total( $data['appointments'] );
 
-        // Find or create customer
-        $customer = $this->find_or_create_customer( $first_name, $last_name, $email, $phone );
-        if ( ! $customer ) {
-            wp_send_json_error( array( 'message' => 'Kon klant niet aanmaken.' ) );
-        }
+        $tz  = wp_timezone();
+        $qty = count( $data['appointments'] );
 
-        $tz = wp_timezone();
-        $created = array();
-
+        // ── 1. Validate all slots are still available before saving ──────────
+        $appt_data = array(); // pre-processed appointment rows
         foreach ( $data['appointments'] as $index => $appt ) {
             $duration   = intval( $appt['duration'] ?? 10 );
             $date       = sanitize_text_field( $appt['date'] ?? '' );
@@ -272,7 +270,6 @@ class EchoVisie_Ajax {
                 wp_send_json_error( array( 'message' => 'Ontbrekende afspraakgegevens voor afspraak ' . ( $index + 1 ) . '.' ) );
             }
 
-            // Verify slot is still available
             $start_dt = new DateTime( $date . ' ' . $time . ':00', $tz );
             $end_dt   = clone $start_dt;
             $end_dt->modify( "+{$duration} minutes" );
@@ -289,76 +286,111 @@ class EchoVisie_Ajax {
                 ) );
             }
 
-            // Build internal note
-            $note_parts = array();
-            if ( $preg_week ) {
-                $note_parts[] = "Zwangerschapsweek: {$preg_week}";
+            $appt_data[ $index ] = compact( 'duration', 'date', 'time', 'staff_id', 'service_id', 'start_dt', 'end_dt', 'appt' );
+        }
+
+        // ── 2. Build Bookly UserBookingData ──────────────────────────────────
+        //
+        // Using Bookly's own save() flow ensures the customer record is
+        // properly created/found, all Bookly hooks fire (including calendar
+        // sync), and email notifications are sent via Cart\Sender::send().
+        //
+        $userData = new \Bookly\Lib\UserBookingData( 'echovisie_book_' . uniqid() );
+
+        $userData
+            ->setFirstName( $first_name )
+            ->setLastName( $last_name )
+            ->setEmail( $email )
+            ->setPhone( $phone )
+            ->setNotes( $notes );
+
+        // ── 3. Add one CartItem per appointment ──────────────────────────────
+        $cf_preg_week = $s['cf_pregnancy_week'] ?? '';
+        $cf_due_date  = $s['cf_due_date'] ?? '';
+        $cf_notes_id  = $s['cf_notes'] ?? '';
+
+        // Build the note parts that are shared across appointments.
+        $base_note_parts = array();
+        if ( $preg_week ) {
+            $base_note_parts[] = "Zwangerschapsweek: {$preg_week}";
+        }
+        if ( $preg_date ) {
+            $base_note_parts[] = ( $preg_type === 'due' ? 'Uitgerekende datum' : 'Laatste menstruatie' ) . ": {$preg_date}";
+        }
+
+        foreach ( $appt_data as $index => $row ) {
+            $custom_fields = array();
+            if ( $cf_preg_week && $preg_week ) {
+                $custom_fields[] = array( 'id' => intval( $cf_preg_week ), 'value' => strval( $preg_week ) );
             }
-            if ( $preg_date ) {
-                $note_parts[] = ( $preg_type === 'due' ? 'Uitgerekende datum' : 'Laatste menstruatie' ) . ": {$preg_date}";
+            if ( $cf_due_date && $preg_date ) {
+                $custom_fields[] = array( 'id' => intval( $cf_due_date ), 'value' => $preg_date );
             }
-            $addons_desc = $this->describe_addons( $duration, $appt['addons'] ?? array(), $s );
+            if ( $cf_notes_id && $notes && $index === 0 ) {
+                $custom_fields[] = array( 'id' => intval( $cf_notes_id ), 'value' => $notes );
+            }
+
+            // Slot format expected by Cart::save(): [service_id, staff_id, 'Y-m-d H:i:s']
+            $cart_item = new \Bookly\Lib\CartItem();
+            $cart_item
+                ->setServiceId( $row['service_id'] )
+                ->setStaffIds( array( $row['staff_id'] ) )
+                ->setNumberOfPersons( 1 )
+                ->setUnits( 1 )
+                ->setSlots( array( array( $row['service_id'], $row['staff_id'], $row['start_dt']->format( 'Y-m-d H:i:s' ) ) ) )
+                ->setCustomFields( $custom_fields );
+
+            $userData->cart->add( $cart_item );
+        }
+
+        // ── 4. Save via Bookly – creates customer, appointments, CustomerAppointment records ──
+        $order = $userData->save( null );
+
+        // ── 5. Set internal note on each appointment after save ──────────────
+        foreach ( $order->getItems() as $item_key => $item ) {
+            if ( ! isset( $appt_data[ $item_key ] ) ) {
+                continue;
+            }
+            $row   = $appt_data[ $item_key ];
+            $appt  = $row['appt'];
+
+            $note_parts = $base_note_parts;
+
+            $addons_desc = $this->describe_addons( $row['duration'], $appt['addons'] ?? array(), $s );
             if ( $addons_desc ) {
                 $note_parts[] = "Extra: {$addons_desc}";
             }
             if ( ! empty( $appt['gender_opt_out'] ) ) {
                 $note_parts[] = "Geen geslachtsbepaling gewenst";
             }
-            if ( $notes && $index === 0 ) {
+            if ( $notes && $item_key === 0 ) {
                 $note_parts[] = "Opmerking klant: {$notes}";
             }
-
-            $qty = count( $data['appointments'] );
             if ( $qty > 1 ) {
-                $note_parts[] = "Pakket: afspraak " . ( $index + 1 ) . " van {$qty}";
+                $note_parts[] = "Pakket: afspraak " . ( $item_key + 1 ) . " van {$qty}";
             }
 
-            // Create appointment
-            $appointment = new \Bookly\Lib\Entities\Appointment();
-            $appointment->setServiceId( $service_id );
-            $appointment->setStaffId( $staff_id );
-            $appointment->setStartDate( $start_dt->format( 'Y-m-d H:i:s' ) );
-            $appointment->setEndDate( $end_dt->format( 'Y-m-d H:i:s' ) );
-            $appointment->setInternalNote( implode( "\n", $note_parts ) );
-            $appointment->save();
-
-            $appt_id = $appointment->getId();
-
-            // Link customer
-            if ( class_exists( '\Bookly\Lib\Entities\CustomerAppointment' ) ) {
-                $ca = new \Bookly\Lib\Entities\CustomerAppointment();
-                $ca->setCustomerId( $customer->getId() );
-                $ca->setAppointmentId( $appt_id );
-                $ca->setStatus( 'approved' );
-
-                // Custom fields
-                $custom_fields = array();
-                $cf_preg_week = $s['cf_pregnancy_week'] ?? '';
-                $cf_due_date  = $s['cf_due_date'] ?? '';
-                $cf_notes_id  = $s['cf_notes'] ?? '';
-
-                if ( $cf_preg_week && $preg_week ) {
-                    $custom_fields[] = array( 'id' => intval( $cf_preg_week ), 'value' => strval( $preg_week ) );
+            if ( ! empty( $note_parts ) && method_exists( $item, 'getAppointment' ) ) {
+                $appointment = $item->getAppointment();
+                if ( $appointment ) {
+                    $appointment->setInternalNote( implode( "\n", $note_parts ) )->save();
                 }
-                if ( $cf_due_date && $preg_date ) {
-                    $custom_fields[] = array( 'id' => intval( $cf_due_date ), 'value' => $preg_date );
-                }
-                if ( $cf_notes_id && $notes && $index === 0 ) {
-                    $custom_fields[] = array( 'id' => intval( $cf_notes_id ), 'value' => $notes );
-                }
-
-                if ( ! empty( $custom_fields ) ) {
-                    $ca->setCustomFields( wp_json_encode( $custom_fields ) );
-                }
-
-                $ca->save();
             }
+        }
 
+        // ── 6. Send Bookly notifications (email, SMS, etc.) ──────────────────
+        if ( class_exists( '\Bookly\Lib\Notifications\Cart\Sender' ) ) {
+            \Bookly\Lib\Notifications\Cart\Sender::send( $order );
+        }
+
+        // ── 7. Build response ────────────────────────────────────────────────
+        $created = array();
+        foreach ( $appt_data as $index => $row ) {
             $created[] = array(
-                'id'    => $appt_id,
-                'date'  => $start_dt->format( 'd-m-Y' ),
-                'time'  => $start_dt->format( 'H:i' ),
-                'staff' => $this->get_staff_name( $staff_id, $s ),
+                'id'    => null, // appointment ID not needed by frontend
+                'date'  => $row['start_dt']->format( 'd-m-Y' ),
+                'time'  => $row['start_dt']->format( 'H:i' ),
+                'staff' => $this->get_staff_name( $row['staff_id'], $s ),
             );
         }
 
@@ -367,33 +399,6 @@ class EchoVisie_Ajax {
             'appointments' => $created,
             'total'        => $price_check['total'],
         ) );
-    }
-
-    /**
-     * Find or create a Bookly customer.
-     */
-    private function find_or_create_customer( $first_name, $last_name, $email, $phone ) {
-        if ( ! class_exists( '\Bookly\Lib\Entities\Customer' ) ) {
-            return null;
-        }
-
-        // Try to find by email
-        $existing = \Bookly\Lib\Entities\Customer::query()
-            ->where( 'email', $email )
-            ->findOne();
-
-        if ( $existing ) {
-            return $existing;
-        }
-
-        $customer = new \Bookly\Lib\Entities\Customer();
-        $customer->setFirstName( $first_name );
-        $customer->setLastName( $last_name );
-        $customer->setEmail( $email );
-        $customer->setPhone( $phone );
-        $customer->save();
-
-        return $customer;
     }
 
     /**
