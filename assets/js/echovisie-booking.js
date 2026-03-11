@@ -67,7 +67,13 @@
     }
 
     /* ── Init ──────────────────────────────────────────── */
-    document.addEventListener('DOMContentLoaded', init);
+    // Safe init: handles both deferred scripts (DOMContentLoaded already fired)
+    // and normal scripts (DOMContentLoaded not yet fired)
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 
     function init() {
         var wrap = document.getElementById('ev-booking');
@@ -81,27 +87,33 @@
         bindSidebar();
     }
 
+    var MONTHS_SHORT = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+
     /* ═══════════════════════════════════════════════════════
        STEP 0: Pregnancy date
        ═══════════════════════════════════════════════════════ */
     function populateDateSelects() {
-        var daySelect = document.getElementById('ev-day');
-        var monthSelect = document.getElementById('ev-month');
-        if (!daySelect || !monthSelect) return;
+        // Build month grid buttons — completely custom, immune to theme select-replacement libraries
+        var grid = document.getElementById('ev-month-grid');
+        if (!grid) return;
 
-        for (var d = 1; d <= 31; d++) {
-            var opt = document.createElement('option');
-            opt.value = d;
-            opt.textContent = d;
-            daySelect.appendChild(opt);
-        }
-
-        for (var m = 0; m < 12; m++) {
-            var opt2 = document.createElement('option');
-            opt2.value = m + 1;
-            opt2.textContent = MONTHS_NL[m];
-            monthSelect.appendChild(opt2);
-        }
+        MONTHS_SHORT.forEach(function (name, idx) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ev-month-btn';
+            btn.textContent = name;
+            btn.setAttribute('data-month', idx + 1);
+            btn.addEventListener('click', function () {
+                // Deselect all, select this one
+                grid.querySelectorAll('.ev-month-btn').forEach(function (b) {
+                    b.classList.remove('ev-month-btn--selected');
+                });
+                btn.classList.add('ev-month-btn--selected');
+                state.pregMonth = String(idx + 1);
+                onDateChange();
+            });
+            grid.appendChild(btn);
+        });
     }
 
     function bindStep0() {
@@ -116,11 +128,19 @@
             });
         });
 
-        // Date selects
-        var daySelect = document.getElementById('ev-day');
-        var monthSelect = document.getElementById('ev-month');
-        if (daySelect) daySelect.addEventListener('change', function () { state.pregDay = this.value; onDateChange(); });
-        if (monthSelect) monthSelect.addEventListener('change', function () { state.pregMonth = this.value; onDateChange(); });
+        // Day number input — plain <input type="number">, never replaced by theme libraries
+        var dayInput = document.getElementById('ev-day-input');
+        if (dayInput) {
+            dayInput.addEventListener('input', function () {
+                state.pregDay = this.value;
+                onDateChange();
+            });
+            // Also handle blur for cases where input event doesn't fire (e.g. autofill)
+            dayInput.addEventListener('change', function () {
+                state.pregDay = this.value;
+                onDateChange();
+            });
+        }
 
         // Skip
         var skipBtn = document.getElementById('ev-skip-pregnancy');
@@ -136,47 +156,57 @@
     }
 
     function onDateChange() {
-        if (!state.pregDay || !state.pregMonth) return;
-
         var day = parseInt(state.pregDay, 10);
         var month = parseInt(state.pregMonth, 10);
-        var now = new Date();
-        var year = now.getFullYear();
 
-        // Build date
-        var d = new Date(year, month - 1, day);
-
-        // If date is more than 2 weeks in the past, assume next year
-        var twoWeeksAgo = new Date();
-        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-        if (d < twoWeeksAgo) {
-            d = new Date(year + 1, month - 1, day);
-        }
-
-        if (state.pregType === 'due') {
-            state.dueDate = d;
-            // Calculate LMP: due date - 280 days
-            var lmp = new Date(d);
-            lmp.setDate(lmp.getDate() - 280);
-            state.pregDate = lmp;
-        } else {
-            state.pregDate = d;
-            // Calculate due date: LMP + 280 days
-            var due = new Date(d);
-            due.setDate(due.getDate() + 280);
-            state.dueDate = due;
-        }
-
-        // Calculate pregnancy week
-        var diffMs = now.getTime() - state.pregDate.getTime();
-        var diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-        state.pregnancyWeek = Math.max(0, Math.floor(diffDays / 7));
-
-        updatePregnancyUI();
-
-        // Enable next button
+        // Enable/disable the Next button immediately based on whether both fields are filled
         var nextBtn = document.getElementById('ev-next-0');
-        if (nextBtn) nextBtn.disabled = false;
+        var isValid = !isNaN(day) && day >= 1 && day <= 31 &&
+                      !isNaN(month) && month >= 1 && month <= 12;
+        if (nextBtn) nextBtn.disabled = !isValid;
+
+        if (!isValid) return;
+
+        // Date calculation (wrapped in try/catch so any edge case doesn't block the button)
+        try {
+            var now = new Date();
+            var year = now.getFullYear();
+
+            var d = new Date(year, month - 1, day);
+
+            // If date is more than 2 weeks in the past, assume next year
+            var twoWeeksAgo = new Date();
+            twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+            if (d < twoWeeksAgo) {
+                d = new Date(year + 1, month - 1, day);
+            }
+
+            if (state.pregType === 'due') {
+                state.dueDate = d;
+                // Calculate LMP: due date - 280 days
+                var lmp = new Date(d.getTime());
+                lmp.setDate(lmp.getDate() - 280);
+                state.pregDate = lmp;
+            } else {
+                state.pregDate = d;
+                // Calculate due date: LMP + 280 days
+                var due = new Date(d.getTime());
+                due.setDate(due.getDate() + 280);
+                state.dueDate = due;
+            }
+
+            // Calculate current pregnancy week
+            var diffMs = now.getTime() - state.pregDate.getTime();
+            var diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            state.pregnancyWeek = Math.max(0, Math.floor(diffDays / 7));
+
+            updatePregnancyUI();
+        } catch (e) {
+            // Date calc failed - button is already enabled above, just hide the info panel
+            state.pregnancyWeek = null;
+            state.pregDate = null;
+            state.dueDate = null;
+        }
     }
 
     function updatePregnancyUI() {

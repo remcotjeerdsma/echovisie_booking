@@ -45,17 +45,14 @@
                 </div>
 
                 <div class="ev-date-input">
-                    <div class="ev-date-field">
-                        <label>Dag</label>
-                        <select id="ev-day" class="ev-select">
-                            <option value="">—</option>
-                        </select>
+                    <div class="ev-date-field ev-date-field--day">
+                        <label for="ev-day-input">Dag</label>
+                        <input type="number" id="ev-day-input" class="ev-input ev-day-input"
+                               min="1" max="31" placeholder="1 – 31" autocomplete="off">
                     </div>
-                    <div class="ev-date-field">
+                    <div class="ev-date-field ev-date-field--month">
                         <label>Maand</label>
-                        <select id="ev-month" class="ev-select">
-                            <option value="">—</option>
-                        </select>
+                        <div class="ev-month-grid" id="ev-month-grid"></div>
                     </div>
                 </div>
 
