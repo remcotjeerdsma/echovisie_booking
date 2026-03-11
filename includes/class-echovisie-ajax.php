@@ -75,94 +75,26 @@ class EchoVisie_Ajax {
 
     /**
      * Query Bookly for available timeslots on a specific date.
+     *
+     * Uses Bookly's own Finder which correctly accounts for Google Calendar
+     * events, schedule breaks, special days, holidays and existing bookings.
      */
     private function query_bookly_slots( $service_id, $date, $duration, $staff_ids, $s ) {
-        $tz = wp_timezone();
-        $slots = array();
+        // Require Bookly's Finder stack.
+        if ( ! class_exists( '\Bookly\Lib\UserBookingData' )
+            || ! class_exists( '\Bookly\Lib\ChainItem' )
+            || ! class_exists( '\Bookly\Lib\Slots\Finder' ) ) {
+            return array();
+        }
+
+        $tz  = wp_timezone();
+        $dt  = new DateTime( $date, $tz );
+        $dow = intval( $dt->format( 'N' ) ); // 1=Mon … 7=Sun
 
         $daytime_end = intval( $s['daytime_end_hour'] ?? 17 );
         $weekend_on  = intval( $s['weekend_surcharge'] ?? 1 );
 
-        // Date info
-        $dt  = new DateTime( $date, $tz );
-        $dow = intval( $dt->format( 'N' ) ); // 1=Mon, 7=Sun
-
-        // Check which staff offer this service
-        $staff_services = \Bookly\Lib\Entities\StaffService::query()
-            ->where( 'service_id', $service_id )
-            ->whereIn( 'staff_id', $staff_ids )
-            ->find();
-
-        if ( empty( $staff_services ) ) {
-            return $slots;
-        }
-
-        $available_staff = array();
-        foreach ( $staff_services as $ss ) {
-            $available_staff[] = intval( $ss->getStaffId() );
-        }
-
-        // Get existing appointments for this date
-        $date_start = $date . ' 00:00:00';
-        $date_end   = $date . ' 23:59:59';
-
-        $existing = \Bookly\Lib\Entities\Appointment::query()
-            ->whereIn( 'staff_id', $available_staff )
-            ->whereGte( 'start_date', $date_start )
-            ->whereLte( 'start_date', $date_end )
-            ->find();
-
-        // Build busy map: staff_id => [ [ start_ts, end_ts ], ... ]
-        $busy = array();
-        foreach ( $existing as $appt ) {
-            $sid = intval( $appt->getStaffId() );
-            $start_ts = ( new DateTime( $appt->getStartDate(), $tz ) )->getTimestamp();
-            $end_ts   = ( new DateTime( $appt->getEndDate(), $tz ) )->getTimestamp();
-            $busy[ $sid ][] = array( $start_ts, $end_ts );
-        }
-
-        // Get staff schedule for the day of week
-        $day_index = $dow; // Bookly uses 1-7
-
-        // Try to use StaffScheduleItem if available
-        $schedules = array();
-        if ( class_exists( '\Bookly\Lib\Entities\StaffScheduleItem' ) ) {
-            $schedule_items = \Bookly\Lib\Entities\StaffScheduleItem::query()
-                ->whereIn( 'staff_id', $available_staff )
-                ->where( 'day_index', $day_index )
-                ->find();
-
-            foreach ( $schedule_items as $item ) {
-                $sid = intval( $item->getStaffId() );
-                $start = $item->getStartTime();
-                $end   = $item->getEndTime();
-                if ( $start && $end ) {
-                    $schedules[ $sid ] = array(
-                        'start' => $start,
-                        'end'   => $end,
-                    );
-                }
-            }
-        }
-
-        // Check holidays
-        $holidays = array();
-        if ( class_exists( '\Bookly\Lib\Entities\Holiday' ) ) {
-            $holiday_items = \Bookly\Lib\Entities\Holiday::query()
-                ->where( 'date', $date )
-                ->find();
-
-            foreach ( $holiday_items as $h ) {
-                $hStaff = $h->getStaffId();
-                if ( $hStaff === null || $hStaff == 0 ) {
-                    // Global holiday
-                    return $slots; // No slots on global holidays
-                }
-                $holidays[] = intval( $hStaff );
-            }
-        }
-
-        // Build staff name map
+        // Build staff name map.
         $staff_names = array();
         for ( $i = 1; $i <= 3; $i++ ) {
             $sid = intval( $s[ "staff_{$i}_id" ] ?? 0 );
@@ -171,58 +103,71 @@ class EchoVisie_Ajax {
             }
         }
 
-        // Generate slots per staff
-        $duration_sec = $duration * 60;
-        $slot_interval = 600; // 10 minutes
+        // Build UserBookingData with the correct service + staff set.
+        $userData = new \Bookly\Lib\UserBookingData( 'echovisie_slots_' . uniqid() );
 
-        foreach ( $available_staff as $sid ) {
-            if ( in_array( $sid, $holidays, true ) ) continue;
+        $chain_item = new \Bookly\Lib\ChainItem();
+        $chain_item
+            ->setServiceId( $service_id )
+            ->setStaffIds( $staff_ids )
+            ->setNumberOfPersons( 1 )
+            ->setQuantity( 1 )
+            ->setUnits( 1 );
 
-            // Get schedule or default 09:00-20:00
-            $sched_start = '09:00:00';
-            $sched_end   = '20:00:00';
-            if ( isset( $schedules[ $sid ] ) ) {
-                $sched_start = $schedules[ $sid ]['start'];
-                $sched_end   = $schedules[ $sid ]['end'];
-            }
+        $userData->chain->clear();
+        $userData->chain->add( $chain_item );
 
-            $work_start = ( new DateTime( $date . ' ' . $sched_start, $tz ) )->getTimestamp();
-            $work_end   = ( new DateTime( $date . ' ' . $sched_end, $tz ) )->getTimestamp();
+        $userData
+            ->setDateFrom( $date )
+            ->setDays( array( 1, 2, 3, 4, 5, 6, 7 ) )
+            ->setTimeFrom( null )
+            ->setTimeTo( null )
+            ->setSlots( array() )
+            ->setEditCartKeys( array() );
 
-            for ( $t = $work_start; $t + $duration_sec <= $work_end; $t += $slot_interval ) {
-                $slot_end = $t + $duration_sec;
+        // Stop the Finder as soon as it steps past the target date so we do
+        // not waste time iterating future days.
+        $target_date  = $date;
+        $callback_stop = function( $client_dp, $groups_count, $slots_count, $available_slots_count ) use ( $target_date ) {
+            return $client_dp->format( 'Y-m-d' ) > $target_date ? 1 : 0;
+        };
 
-                // Check overlap with existing appointments
-                $is_busy = false;
-                if ( isset( $busy[ $sid ] ) ) {
-                    foreach ( $busy[ $sid ] as $b ) {
-                        if ( $t < $b[1] && $slot_end > $b[0] ) {
-                            $is_busy = true;
-                            break;
-                        }
-                    }
+        // Finder correctly handles: Google Calendar events (via Bookly Pro),
+        // Outlook Calendar, schedule breaks, special days, holidays and all
+        // existing Bookly appointments.
+        $finder = new \Bookly\Lib\Slots\Finder( $userData, null, $callback_stop );
+        $finder->setSelectedDate( $date );
+        $finder->prepare()->load();
+
+        $result     = array();
+        $all_slots  = $finder->getSlots();
+
+        if ( isset( $all_slots[ $date ] ) ) {
+            /** @var \Bookly\Lib\Slots\Range[] $day_slots */
+            foreach ( $all_slots[ $date ] as $slot ) {
+                if ( ! $slot->notFullyBooked() ) {
+                    continue;
                 }
-                if ( $is_busy ) continue;
 
-                $slot_dt = ( new DateTime() )->setTimezone( $tz )->setTimestamp( $t );
-                $hour    = intval( $slot_dt->format( 'G' ) );
-                $is_peak = ( $hour >= $daytime_end ) || ( $weekend_on && ( $dow === 6 || $dow === 7 ) );
+                $staff_id = $slot->staffId();
+                $time_str = $slot->start()->toClientTz()->format( 'H:i' );
+                $hour     = (int) substr( $time_str, 0, 2 );
+                $is_peak  = ( $hour >= $daytime_end ) || ( $weekend_on && ( $dow === 6 || $dow === 7 ) );
 
-                $slots[] = array(
-                    'time'       => $slot_dt->format( 'H:i' ),
-                    'staff_id'   => $sid,
-                    'staff_name' => $staff_names[ $sid ] ?? "Medewerker",
+                $result[] = array(
+                    'time'       => $time_str,
+                    'staff_id'   => $staff_id,
+                    'staff_name' => $staff_names[ $staff_id ] ?? 'Medewerker',
                     'is_peak'    => $is_peak,
                 );
             }
         }
 
-        // Sort by time
-        usort( $slots, function ( $a, $b ) {
+        usort( $result, function ( $a, $b ) {
             return strcmp( $a['time'], $b['time'] );
         } );
 
-        return $slots;
+        return $result;
     }
 
     /**
