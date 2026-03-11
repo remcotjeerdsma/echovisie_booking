@@ -87,27 +87,33 @@
         bindSidebar();
     }
 
+    var MONTHS_SHORT = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+
     /* ═══════════════════════════════════════════════════════
        STEP 0: Pregnancy date
        ═══════════════════════════════════════════════════════ */
     function populateDateSelects() {
-        var daySelect = document.getElementById('ev-day');
-        var monthSelect = document.getElementById('ev-month');
-        if (!daySelect || !monthSelect) return;
+        // Build month grid buttons — completely custom, immune to theme select-replacement libraries
+        var grid = document.getElementById('ev-month-grid');
+        if (!grid) return;
 
-        for (var d = 1; d <= 31; d++) {
-            var opt = document.createElement('option');
-            opt.value = d;
-            opt.textContent = d;
-            daySelect.appendChild(opt);
-        }
-
-        for (var m = 0; m < 12; m++) {
-            var opt2 = document.createElement('option');
-            opt2.value = m + 1;
-            opt2.textContent = MONTHS_NL[m];
-            monthSelect.appendChild(opt2);
-        }
+        MONTHS_SHORT.forEach(function (name, idx) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ev-month-btn';
+            btn.textContent = name;
+            btn.setAttribute('data-month', idx + 1);
+            btn.addEventListener('click', function () {
+                // Deselect all, select this one
+                grid.querySelectorAll('.ev-month-btn').forEach(function (b) {
+                    b.classList.remove('ev-month-btn--selected');
+                });
+                btn.classList.add('ev-month-btn--selected');
+                state.pregMonth = String(idx + 1);
+                onDateChange();
+            });
+            grid.appendChild(btn);
+        });
     }
 
     function bindStep0() {
@@ -122,11 +128,19 @@
             });
         });
 
-        // Date selects
-        var daySelect = document.getElementById('ev-day');
-        var monthSelect = document.getElementById('ev-month');
-        if (daySelect) daySelect.addEventListener('change', function () { state.pregDay = this.value; onDateChange(); });
-        if (monthSelect) monthSelect.addEventListener('change', function () { state.pregMonth = this.value; onDateChange(); });
+        // Day number input — plain <input type="number">, never replaced by theme libraries
+        var dayInput = document.getElementById('ev-day-input');
+        if (dayInput) {
+            dayInput.addEventListener('input', function () {
+                state.pregDay = this.value;
+                onDateChange();
+            });
+            // Also handle blur for cases where input event doesn't fire (e.g. autofill)
+            dayInput.addEventListener('change', function () {
+                state.pregDay = this.value;
+                onDateChange();
+            });
+        }
 
         // Skip
         var skipBtn = document.getElementById('ev-skip-pregnancy');
