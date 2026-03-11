@@ -26,6 +26,11 @@
         <div class="ev-step__line"></div>
         <div class="ev-step" data-step="3">
             <span class="ev-step__num">4</span>
+            <span class="ev-step__label">Extra's</span>
+        </div>
+        <div class="ev-step__line"></div>
+        <div class="ev-step" data-step="4">
+            <span class="ev-step__num">5</span>
             <span class="ev-step__label">Gegevens</span>
         </div>
     </div>
@@ -131,8 +136,21 @@
                 </div>
             </div>
 
-            <!-- STEP 3: Gegevens -->
+            <!-- STEP 3: Extra's -->
             <div class="ev-panel" data-panel="3" style="display:none;">
+                <h2>Extra opties</h2>
+                <p class="ev-subtitle">Voeg optionele extra's toe aan jouw echo. Alles is ook zonder extra's geweldig!</p>
+
+                <div id="ev-extras-panels"></div>
+
+                <div class="ev-nav">
+                    <button type="button" class="ev-btn ev-btn--ghost" id="ev-back-3">&larr; Terug</button>
+                    <button type="button" class="ev-btn ev-btn--primary" id="ev-next-3">Volgende</button>
+                </div>
+            </div>
+
+            <!-- STEP 4: Gegevens -->
+            <div class="ev-panel" data-panel="4" style="display:none;">
                 <h2>Jouw gegevens</h2>
                 <p class="ev-subtitle">Vul je contactgegevens in om de afspraak te bevestigen.</p>
 
@@ -160,7 +178,7 @@
                 </div>
 
                 <div class="ev-nav">
-                    <button type="button" class="ev-btn ev-btn--ghost" id="ev-back-3">&larr; Terug</button>
+                    <button type="button" class="ev-btn ev-btn--ghost" id="ev-back-4">&larr; Terug</button>
                     <button type="button" class="ev-btn ev-btn--primary ev-btn--large" id="ev-submit">Afspraak bevestigen</button>
                 </div>
             </div>

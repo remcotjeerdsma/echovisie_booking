@@ -83,7 +83,8 @@
         bindStep0();
         bindStep1();
         bindStep2();
-        bindStep3();
+        bindExtrasStep();
+        bindStep4();
         bindSidebar();
     }
 
@@ -172,24 +173,25 @@
             var now = new Date();
             var year = now.getFullYear();
 
-            var d = new Date(year, month - 1, day);
-
-            // If date is more than 2 weeks in the past, assume next year
-            var twoWeeksAgo = new Date();
-            twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-            if (d < twoWeeksAgo) {
-                d = new Date(year + 1, month - 1, day);
-            }
-
             if (state.pregType === 'due') {
+                // Due date is in the future — if more than 2 weeks past, assume next year.
+                var d = new Date(year, month - 1, day);
+                var twoWeeksAgo = new Date();
+                twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+                if (d < twoWeeksAgo) {
+                    d = new Date(year + 1, month - 1, day);
+                }
                 state.dueDate = d;
-                // Calculate LMP: due date - 280 days
                 var lmp = new Date(d.getTime());
                 lmp.setDate(lmp.getDate() - 280);
                 state.pregDate = lmp;
             } else {
+                // LMP is always in the past — if the entered date is in the future, use last year.
+                var d = new Date(year, month - 1, day);
+                if (d > now) {
+                    d = new Date(year - 1, month - 1, day);
+                }
                 state.pregDate = d;
-                // Calculate due date: LMP + 280 days
                 var due = new Date(d.getTime());
                 due.setDate(due.getDate() + 280);
                 state.dueDate = due;
@@ -750,6 +752,39 @@
         if (nextBtn) nextBtn.addEventListener('click', function () { setStep(3); });
     }
 
+    /* ═══════════════════════════════════════════════════════
+       STEP 3: Extra's
+       ═══════════════════════════════════════════════════════ */
+    function bindExtrasStep() {
+        var backBtn = document.getElementById('ev-back-3');
+        if (backBtn) backBtn.addEventListener('click', function () { setStep(2); });
+
+        var nextBtn = document.getElementById('ev-next-3');
+        if (nextBtn) nextBtn.addEventListener('click', function () { setStep(4); });
+    }
+
+    function renderExtrasStep() {
+        var container = document.getElementById('ev-extras-panels');
+        if (!container) return;
+        container.innerHTML = '';
+
+        state.appointments.forEach(function (appt, idx) {
+            var card = document.createElement('div');
+            card.className = 'ev-appt-card';
+
+            var title = state.packageQty > 1 ? 'Echo ' + (idx + 1) : 'Jouw echo';
+            if (appt.milestone) title += ' \u2013 ' + appt.milestone.name;
+            card.innerHTML = '<div class="ev-appt-card__title">' + title + ' \u2013 ' + appt.duration + ' min</div>';
+
+            var addonsEl = document.createElement('div');
+            addonsEl.className = 'ev-addons';
+            renderAddons(addonsEl, appt, idx);
+            card.appendChild(addonsEl);
+
+            container.appendChild(card);
+        });
+    }
+
     function renderStep2() {
         var container = document.getElementById('ev-datetime-panels');
         if (!container) return;
@@ -902,6 +937,17 @@
         }
 
         container.appendChild(grid);
+
+        // Legend explaining the orange optimal-range days
+        if (optStart && optEnd && appt.milestone) {
+            var optLegend = document.createElement('div');
+            optLegend.className = 'ev-calendar__optimal-legend';
+            optLegend.innerHTML =
+                '<span class="ev-calendar__optimal-swatch"></span>' +
+                'Aanbevolen periode voor <strong>' + appt.milestone.name + '</strong>' +
+                ' (week\u00a0' + appt.milestone.weekStart + '\u2013' + appt.milestone.weekEnd + ')';
+            container.appendChild(optLegend);
+        }
     }
 
     function getIdealDate(milestone) {
@@ -1066,11 +1112,11 @@
     }
 
     /* ═══════════════════════════════════════════════════════
-       STEP 3: Customer details
+       STEP 4: Customer details
        ═══════════════════════════════════════════════════════ */
-    function bindStep3() {
-        var backBtn = document.getElementById('ev-back-3');
-        if (backBtn) backBtn.addEventListener('click', function () { setStep(2); });
+    function bindStep4() {
+        var backBtn = document.getElementById('ev-back-4');
+        if (backBtn) backBtn.addEventListener('click', function () { setStep(3); });
 
         var submitBtn = document.getElementById('ev-submit');
         if (submitBtn) submitBtn.addEventListener('click', handleSubmit);
@@ -1245,6 +1291,8 @@
             }
         } else if (n === 2) {
             renderStep2();
+        } else if (n === 3) {
+            renderExtrasStep();
         }
 
         updateSidebar();

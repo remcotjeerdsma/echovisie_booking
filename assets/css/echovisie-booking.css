@@ -367,6 +367,9 @@
     border: 2px solid var(--ev-primary);
     color: var(--ev-primary);
     padding: .65rem 1.5rem;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
 }
 .ev-btn--outline:hover {
     background: var(--ev-primary-light);
@@ -832,8 +835,33 @@
     color: var(--ev-text-light) !important;
 }
 .ev-calendar__day--optimal {
-    background: var(--ev-primary-lighter);
+    background: var(--ev-primary-light);
     color: var(--ev-primary-dark);
+    font-weight: 600;
+    box-shadow: inset 0 0 0 1px var(--ev-primary);
+}
+
+/* Legend below the calendar explaining the orange days */
+.ev-calendar__optimal-legend {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    margin-top: .65rem;
+    padding: .45rem .65rem;
+    background: var(--ev-primary-light);
+    border-left: 3px solid var(--ev-primary);
+    border-radius: var(--ev-radius-sm);
+    font-size: .78rem;
+    color: var(--ev-primary-dark);
+    line-height: 1.4;
+}
+.ev-calendar__optimal-swatch {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    background: var(--ev-primary-light);
+    box-shadow: inset 0 0 0 1px var(--ev-primary);
 }
 .ev-calendar__day--disabled {
     opacity: .25;
