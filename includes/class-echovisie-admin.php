@@ -60,7 +60,7 @@ class EchoVisie_Admin {
     }
 
     private function get_checkbox_keys() {
-        $keys = array( 'weekend_surcharge' );
+        $keys = array( 'weekend_surcharge', 'mollie_enabled' );
         foreach ( array( 10, 20, 30, 40, 50, 60 ) as $dur ) {
             $keys[] = "content_{$dur}_usb_free";
             $keys[] = "content_{$dur}_recording_free";
@@ -93,6 +93,7 @@ class EchoVisie_Admin {
                     'prijzen'  => 'Prijzen',
                     'inhoud'   => 'Inhoud per duur',
                     'bookly'   => 'Bookly Koppeling',
+                    'betaling' => 'Betaling',
                 );
                 foreach ( $tabs as $slug => $label ) {
                     $class = $active_tab === $slug ? ' nav-tab-active' : '';
@@ -118,6 +119,8 @@ class EchoVisie_Admin {
                     <?php $this->render_tab_inhoud( $s ); ?>
                 <?php elseif ( $active_tab === 'bookly' ) : ?>
                     <?php $this->render_tab_bookly( $s ); ?>
+                <?php elseif ( $active_tab === 'betaling' ) : ?>
+                    <?php $this->render_tab_betaling( $s ); ?>
                 <?php endif; ?>
 
                 <?php submit_button( 'Instellingen opslaan' ); ?>
@@ -153,10 +156,13 @@ class EchoVisie_Admin {
             'coupon_2pack', 'coupon_3pack',
         );
 
+        $betaling_keys = array( 'mollie_enabled', 'mollie_api_key', 'mollie_currency' );
+
         $tabs_keys = array(
-            'prijzen' => $prijzen_keys,
-            'inhoud'  => $inhoud_keys,
-            'bookly'  => $bookly_keys,
+            'prijzen'  => $prijzen_keys,
+            'inhoud'   => $inhoud_keys,
+            'bookly'   => $bookly_keys,
+            'betaling' => $betaling_keys,
         );
 
         foreach ( $tabs_keys as $tab => $keys ) {
@@ -329,6 +335,62 @@ class EchoVisie_Admin {
                     class="regular-text">
             </td>
         </tr>
+        <?php
+    }
+
+    private function password_row( $label, $key, $s ) {
+        ?>
+        <tr>
+            <th><?php echo esc_html( $label ); ?></th>
+            <td>
+                <input type="password" name="echovisie_settings[<?php echo esc_attr( $key ); ?>]"
+                    value="<?php echo esc_attr( $s[ $key ] ?? '' ); ?>"
+                    class="regular-text" autocomplete="new-password">
+            </td>
+        </tr>
+        <?php
+    }
+
+    /* ── Tab: Betaling ────────────────────────────────── */
+    private function render_tab_betaling( $s ) {
+        ?>
+        <h3>Mollie Betalingen</h3>
+        <p class="description">Activeer Mollie-betalingen om klanten direct af te rekenen via iDEAL, creditcard en andere betaalmethoden.</p>
+        <table class="form-table">
+            <tr>
+                <th>Betalingen inschakelen</th>
+                <td>
+                    <label>
+                        <input type="checkbox" name="echovisie_settings[mollie_enabled]" value="1"
+                            <?php checked( 1, intval( $s['mollie_enabled'] ?? 0 ) ); ?>>
+                        Klanten betalen via Mollie vóór bevestiging
+                    </label>
+                </td>
+            </tr>
+            <?php $this->password_row( 'Mollie API-sleutel', 'mollie_api_key', $s ); ?>
+            <tr>
+                <th>Valuta</th>
+                <td>
+                    <select name="echovisie_settings[mollie_currency]">
+                        <?php
+                        $currencies = array( 'EUR' => 'EUR – Euro', 'USD' => 'USD – Dollar', 'GBP' => 'GBP – Pond' );
+                        $current    = $s['mollie_currency'] ?? 'EUR';
+                        foreach ( $currencies as $code => $label ) {
+                            printf(
+                                '<option value="%s"%s>%s</option>',
+                                esc_attr( $code ),
+                                selected( $current, $code, false ),
+                                esc_html( $label )
+                            );
+                        }
+                        ?>
+                    </select>
+                </td>
+            </tr>
+        </table>
+        <div class="notice notice-info inline" style="padding:10px 14px;margin-top:12px;">
+            <p><strong>Tip:</strong> Gebruik eerst een <code>test_</code>-sleutel om betalingen te testen zonder echte transacties. Schakel over naar een <code>live_</code>-sleutel bij live gebruik.</p>
+        </div>
         <?php
     }
 }

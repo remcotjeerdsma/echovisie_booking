@@ -18,6 +18,10 @@ class EchoVisie_Ajax {
         add_action( 'wp_ajax_nopriv_echovisie_get_slots', array( $this, 'handle_get_slots' ) );
         add_action( 'wp_ajax_echovisie_book', array( $this, 'handle_book' ) );
         add_action( 'wp_ajax_nopriv_echovisie_book', array( $this, 'handle_book' ) );
+        add_action( 'wp_ajax_echovisie_validate_voucher', array( $this, 'handle_validate_voucher' ) );
+        add_action( 'wp_ajax_nopriv_echovisie_validate_voucher', array( $this, 'handle_validate_voucher' ) );
+        add_action( 'wp_ajax_nopriv_echovisie_mollie_webhook', array( $this, 'handle_mollie_webhook' ) );
+        add_action( 'wp_ajax_echovisie_mollie_webhook', array( $this, 'handle_mollie_webhook' ) );
     }
 
     /* ──────────────────────────────────────────────────────
@@ -426,17 +430,67 @@ class EchoVisie_Ajax {
             \Bookly\Lib\Notifications\Cart\Sender::send( $order );
         }
 
-        // ── 8. Build response ────────────────────────────────────────────────
+        // ── 8. Build appointments summary ────────────────────────────────────
         $created = array();
         foreach ( $appt_data as $index => $row ) {
             $created[] = array(
-                'id'    => null, // appointment ID not needed by frontend
+                'id'    => null,
                 'date'  => $row['start_dt']->format( 'd-m-Y' ),
                 'time'  => $row['start_dt']->format( 'H:i' ),
                 'staff' => $this->get_staff_name( $row['staff_id'], $s ),
             );
         }
 
+        // ── 9. Mollie payment (if enabled) ───────────────────────────────────
+        if ( intval( $s['mollie_enabled'] ?? 0 ) && ! empty( $s['mollie_api_key'] ) ) {
+            $page_url = sanitize_text_field( $data['page_url'] ?? '' );
+            if ( ! $page_url ) {
+                $page_url = home_url( '/' );
+            }
+
+            $token        = bin2hex( random_bytes( 16 ) );
+            $currency     = sanitize_text_field( $s['mollie_currency'] ?? 'EUR' );
+            $description  = 'EchoVisie – ' . $first_name . ' ' . $last_name;
+            $redirect_url = add_query_arg( array(
+                'ev_token'  => $token,
+                'ev_status' => 'return',
+            ), $page_url );
+            $webhook_url  = admin_url( 'admin-ajax.php?action=echovisie_mollie_webhook' );
+
+            try {
+                $mollie  = new EchoVisie_Mollie( $s['mollie_api_key'] );
+                $payment = $mollie->create_payment(
+                    (float) $price_check['total'],
+                    $currency,
+                    $description,
+                    $redirect_url,
+                    $webhook_url,
+                    array( 'ev_token' => $token )
+                );
+
+                set_transient( 'echovisie_pay_' . $token, array(
+                    'mollie_payment_id' => $payment->id,
+                    'appointments'      => $created,
+                    'total'             => $price_check['total'],
+                    'customer'          => array(
+                        'first_name' => $first_name,
+                        'last_name'  => $last_name,
+                        'email'      => $email,
+                    ),
+                    'status' => 'pending',
+                ), DAY_IN_SECONDS );
+
+                wp_send_json_success( array(
+                    'requires_payment' => true,
+                    'checkout_url'     => EchoVisie_Mollie::checkout_url( $payment ),
+                ) );
+            } catch ( \Exception $e ) {
+                error_log( 'EchoVisie Mollie: ' . $e->getMessage() );
+                // Fall through to normal success response on Mollie error
+            }
+        }
+
+        // ── 10. Normal (non-payment) success response ────────────────────────
         wp_send_json_success( array(
             'message'      => 'Je afspraak is bevestigd!',
             'appointments' => $created,
@@ -454,6 +508,101 @@ class EchoVisie_Ajax {
             }
         }
         return 'Medewerker';
+    }
+
+    /* ──────────────────────────────────────────────────────
+     * VALIDATE VOUCHER CODE
+     * ────────────────────────────────────────────────────── */
+    public function handle_validate_voucher() {
+        check_ajax_referer( 'echovisie_nonce', 'nonce' );
+
+        $code = sanitize_text_field( $_POST['code'] ?? '' );
+
+        if ( ! $code ) {
+            wp_send_json_error( array( 'message' => 'Geen code opgegeven.' ) );
+        }
+
+        // Require Bookly Coupons add-on.
+        if ( ! class_exists( '\BooklyCoupons\Lib\Entities\Coupon' ) ) {
+            wp_send_json_error( array( 'message' => 'Kortingscodes zijn niet beschikbaar.' ) );
+        }
+
+        /** @var \BooklyCoupons\Lib\Entities\Coupon|false $coupon */
+        $coupon = \Bookly\Frontend\Modules\Booking\Proxy\Coupons::findOneByCode( $code );
+
+        if ( ! $coupon ) {
+            wp_send_json_error( array( 'message' => 'Deze kortingscode bestaat niet.' ) );
+        }
+
+        if ( $coupon->fullyUsed() ) {
+            wp_send_json_error( array( 'message' => 'Deze kortingscode is al volledig gebruikt.' ) );
+        }
+
+        if ( ! $coupon->started() ) {
+            wp_send_json_error( array( 'message' => 'Deze kortingscode is nog niet geldig.' ) );
+        }
+
+        if ( $coupon->expired() ) {
+            wp_send_json_error( array( 'message' => 'Deze kortingscode is verlopen.' ) );
+        }
+
+        $discount_pct = (float) $coupon->getDiscount();   // e.g. 10 for 10 %
+        $deduction    = (float) $coupon->getDeduction();  // flat amount
+
+        // Build a human-readable label.
+        $parts = array();
+        if ( $discount_pct > 0 ) {
+            $parts[] = number_format( $discount_pct, 0, ',', '' ) . '% korting';
+        }
+        if ( $deduction > 0 ) {
+            $parts[] = '€\u00a0' . number_format( $deduction, 2, ',', '' ) . ' korting';
+        }
+        $label = ! empty( $parts ) ? implode( ' + ', $parts ) : 'Korting';
+
+        wp_send_json_success( array(
+            'valid'        => true,
+            'discount_pct' => $discount_pct,
+            'deduction'    => $deduction,
+            'label'        => $label,
+        ) );
+    }
+
+    /* ──────────────────────────────────────────────────────
+     * MOLLIE WEBHOOK
+     * ────────────────────────────────────────────────────── */
+    public function handle_mollie_webhook() {
+        $payment_id = sanitize_text_field( $_POST['id'] ?? '' );
+        if ( ! $payment_id ) {
+            status_header( 200 );
+            exit;
+        }
+
+        $s = get_option( 'echovisie_settings', echovisie_default_settings() );
+        if ( empty( $s['mollie_api_key'] ) ) {
+            status_header( 200 );
+            exit;
+        }
+
+        try {
+            $mollie  = new EchoVisie_Mollie( $s['mollie_api_key'] );
+            $payment = $mollie->get_payment( $payment_id );
+            $token   = $payment->metadata->ev_token ?? '';
+
+            if ( $token ) {
+                $booking = get_transient( 'echovisie_pay_' . $token );
+                if ( $booking ) {
+                    $booking['status'] = EchoVisie_Mollie::is_paid( $payment )
+                        ? 'paid'
+                        : ( EchoVisie_Mollie::is_pending( $payment ) ? 'pending' : 'failed' );
+                    set_transient( 'echovisie_pay_' . $token, $booking, DAY_IN_SECONDS );
+                }
+            }
+        } catch ( \Exception $e ) {
+            error_log( 'EchoVisie Mollie webhook: ' . $e->getMessage() );
+        }
+
+        status_header( 200 );
+        exit;
     }
 
     /**

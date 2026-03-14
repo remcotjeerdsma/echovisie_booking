@@ -1156,7 +1156,8 @@
     color: var(--ev-text);
     margin-top: .3rem;
 }
-.ev-sidebar__discount {
+.ev-sidebar__discount,
+.ev-sidebar__voucher {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1226,6 +1227,49 @@
 }
 .ev-confirmation__value {
     font-weight: 700;
+}
+
+/* ── Payment redirect screen ──────────────────────────── */
+.ev-panel--payment,
+.ev-panel--pending,
+.ev-panel--failed {
+    text-align: center;
+    padding: 3rem 2rem;
+}
+.ev-payment-spinner {
+    width: 52px;
+    height: 52px;
+    border: 5px solid var(--ev-border);
+    border-top-color: var(--ev-primary);
+    border-radius: 50%;
+    animation: ev-spin .8s linear infinite;
+    margin: 0 auto 1.5rem;
+}
+@keyframes ev-spin {
+    to { transform: rotate(360deg); }
+}
+.ev-pending-icon,
+.ev-failed-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    margin: 0 auto 1.5rem;
+    animation: ev-pop .4s cubic-bezier(.175,.885,.32,1.275) forwards;
+}
+.ev-pending-icon {
+    background: var(--ev-primary-light);
+    color: var(--ev-primary-dark);
+}
+.ev-failed-icon {
+    background: #FFEBEE;
+    color: var(--ev-danger);
+}
+.ev-nav--center {
+    justify-content: center;
 }
 
 /* ── Error message ────────────────────────────────────── */

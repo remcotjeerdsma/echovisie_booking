@@ -203,6 +203,30 @@
                 <div id="ev-confirmation-details"></div>
             </div>
 
+            <!-- Payment redirect screen -->
+            <div class="ev-panel ev-panel--payment" data-panel="payment" style="display:none;">
+                <div class="ev-payment-spinner"></div>
+                <h2>Je wordt doorgestuurd naar de betaalpagina&hellip;</h2>
+                <p class="ev-subtitle">Wacht even, je wordt zo doorgestuurd naar Mollie om de betaling af te ronden.</p>
+            </div>
+
+            <!-- Payment pending screen -->
+            <div class="ev-panel ev-panel--pending" data-panel="pending" style="display:none;">
+                <div class="ev-pending-icon">&#8987;</div>
+                <h2>Betaling in behandeling</h2>
+                <p class="ev-subtitle">Je betaling wordt nog verwerkt. Je ontvangt een bevestiging per e-mail zodra de betaling is afgerond.</p>
+            </div>
+
+            <!-- Payment failed screen -->
+            <div class="ev-panel ev-panel--failed" data-panel="failed" style="display:none;">
+                <div class="ev-failed-icon">&#10005;</div>
+                <h2>Betaling mislukt</h2>
+                <p class="ev-subtitle">De betaling is niet gelukt. Probeer het opnieuw of neem contact met ons op.</p>
+                <div class="ev-nav ev-nav--center">
+                    <button type="button" class="ev-btn ev-btn--primary" onclick="window.location.href=window.location.pathname">Opnieuw proberen</button>
+                </div>
+            </div>
+
         </div>
 
         <!-- Sidebar -->

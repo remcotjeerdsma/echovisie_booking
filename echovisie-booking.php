@@ -17,6 +17,7 @@ define( 'ECHOVISIE_URL', plugin_dir_url( __FILE__ ) );
 
 /* ── Includes ─────────────────────────────────────────── */
 require_once ECHOVISIE_PATH . 'includes/class-echovisie-pricing.php';
+require_once ECHOVISIE_PATH . 'includes/class-echovisie-mollie.php';
 require_once ECHOVISIE_PATH . 'includes/class-echovisie-ajax.php';
 
 if ( is_admin() ) {
@@ -69,6 +70,11 @@ function echovisie_default_settings() {
         // Daytime / peak definition
         'daytime_end_hour' => 17,
         'weekend_surcharge' => 1, // 1 = weekend gets surcharge
+
+        // Mollie payment
+        'mollie_enabled'  => 0,
+        'mollie_api_key'  => '',
+        'mollie_currency' => 'EUR',
     );
 }
 
@@ -104,6 +110,36 @@ function echovisie_enqueue_assets() {
     );
 
     $s = get_option( 'echovisie_settings', echovisie_default_settings() );
+
+    // Check for Mollie payment return
+    $payment_return = null;
+    if ( ! empty( $_GET['ev_token'] ) && ( sanitize_key( $_GET['ev_status'] ?? '' ) === 'return' ) ) {
+        $token   = sanitize_text_field( $_GET['ev_token'] );
+        $booking = get_transient( 'echovisie_pay_' . $token );
+        if ( $booking ) {
+            $status = $booking['status'] ?? 'pending';
+            // Refresh status from Mollie if we have an API key + payment ID
+            if ( ! empty( $s['mollie_api_key'] ) && ! empty( $booking['mollie_payment_id'] ) ) {
+                try {
+                    $mollie  = new EchoVisie_Mollie( $s['mollie_api_key'] );
+                    $payment = $mollie->get_payment( $booking['mollie_payment_id'] );
+                    $status  = EchoVisie_Mollie::is_paid( $payment )
+                        ? 'paid'
+                        : ( EchoVisie_Mollie::is_pending( $payment ) ? 'pending' : 'failed' );
+                    $booking['status'] = $status;
+                    set_transient( 'echovisie_pay_' . $token, $booking, DAY_IN_SECONDS );
+                } catch ( \Exception $e ) {
+                    // Keep stored status
+                }
+            }
+            $payment_return = array(
+                'status'       => $status,
+                'appointments' => $booking['appointments'] ?? array(),
+                'total'        => $booking['total'] ?? 0,
+                'customer'     => $booking['customer'] ?? array(),
+            );
+        }
+    }
 
     // Build content rules map for JS
     $content_rules = array();
@@ -142,8 +178,10 @@ function echovisie_enqueue_assets() {
     }
 
     wp_localize_script( 'echovisie-booking-js', 'echovisieBooking', array(
-        'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-        'nonce'   => wp_create_nonce( 'echovisie_nonce' ),
+        'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
+        'nonce'         => wp_create_nonce( 'echovisie_nonce' ),
+        'pageUrl'       => get_permalink(),
+        'paymentReturn' => $payment_return,
         'pricing' => array(
             'pricePerBlock'    => floatval( $s['price_per_block'] ?? 15 ),
             'surchargeAmount'  => floatval( $s['surcharge_amount'] ?? 10 ),

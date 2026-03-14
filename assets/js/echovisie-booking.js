@@ -52,7 +52,7 @@
         customerNotes: '',
 
         voucherCode: '',
-        voucherApplied: false,
+        voucher: null,          // { discount_pct, deduction, label } when validated
 
         bookingInProgress: false
     };
@@ -81,6 +81,12 @@
     function init() {
         var wrap = document.getElementById('ev-booking');
         if (!wrap) return;
+
+        // Handle Mollie payment return before rendering the form
+        if (CFG.paymentReturn) {
+            handlePaymentReturn(CFG.paymentReturn);
+            return;
+        }
 
         populateDateSelects();
         bindStep0();
@@ -1299,7 +1305,8 @@
                 date: state.dueDate ? formatDateISO(state.dueDate) : '',
                 week: state.pregnancyWeek || 0
             },
-            voucher_code: state.voucherApplied ? state.voucherCode : ''
+            voucher_code: state.voucher ? state.voucherCode : '',
+            page_url: CFG.pageUrl || (window.location.origin + window.location.pathname)
         };
 
         var formData = new FormData();
@@ -1312,7 +1319,11 @@
             .then(function (resp) {
                 state.bookingInProgress = false;
                 if (resp.success) {
-                    showSuccess(resp.data);
+                    if (resp.data && resp.data.requires_payment && resp.data.checkout_url) {
+                        showPaymentRedirect(resp.data.checkout_url);
+                    } else {
+                        showSuccess(resp.data);
+                    }
                 } else {
                     if (submitBtn) {
                         submitBtn.disabled = false;
@@ -1349,9 +1360,7 @@
     }
 
     function showSuccess(data) {
-        // Hide all panels
-        var panels = document.querySelectorAll('.ev-panel');
-        panels.forEach(function (p) { p.style.display = 'none'; });
+        hidePanels();
 
         var successPanel = document.querySelector('[data-panel="success"]');
         if (successPanel) {
@@ -1374,16 +1383,55 @@
             }
         }
 
-        // Hide sidebar
+        hideSidebar();
+        markStepsDone();
+    }
+
+    function hidePanels() {
+        document.querySelectorAll('.ev-panel').forEach(function (p) { p.style.display = 'none'; });
+    }
+
+    function hideSidebar() {
         var sidebar = document.getElementById('ev-sidebar');
         if (sidebar) sidebar.style.display = 'none';
+    }
 
-        // Update step bar to all done
-        var steps = document.querySelectorAll('.ev-step');
-        steps.forEach(function (s) {
+    function markStepsDone() {
+        document.querySelectorAll('.ev-step').forEach(function (s) {
             s.classList.remove('ev-step--active');
             s.classList.add('ev-step--done');
         });
+    }
+
+    function showPaymentRedirect(checkoutUrl) {
+        hidePanels();
+        var panel = document.querySelector('[data-panel="payment"]');
+        if (panel) panel.style.display = '';
+        hideSidebar();
+        // Redirect after a brief moment so the user sees the screen
+        setTimeout(function () {
+            window.location.href = checkoutUrl;
+        }, 1200);
+    }
+
+    function handlePaymentReturn(data) {
+        hidePanels();
+        hideSidebar();
+        markStepsDone();
+        // Hide step bar
+        var steps = document.querySelector('.ev-steps');
+        if (steps) steps.style.display = 'none';
+
+        var returnPanel;
+        if (data.status === 'paid') {
+            showSuccess(data);
+        } else if (data.status === 'pending') {
+            returnPanel = document.querySelector('[data-panel="pending"]');
+            if (returnPanel) returnPanel.style.display = '';
+        } else {
+            returnPanel = document.querySelector('[data-panel="failed"]');
+            if (returnPanel) returnPanel.style.display = '';
+        }
     }
 
     /* ═══════════════════════════════════════════════════════
@@ -1395,25 +1443,69 @@
         var resultEl = document.getElementById('ev-voucher-result');
         if (!applyBtn || !voucherInput) return;
 
+        function setResult(type, msg) {
+            if (!resultEl) return;
+            resultEl.className = 'ev-voucher-result' + (type ? ' ev-voucher-result--' + type : '');
+            resultEl.textContent = msg;
+        }
+
+        function resetVoucher() {
+            state.voucher = null;
+            state.voucherCode = '';
+            applyBtn.textContent = 'Toepassen';
+            voucherInput.disabled = false;
+            setResult('', '');
+            updateSidebar();
+        }
+
         applyBtn.addEventListener('click', function () {
-            var code = voucherInput.value.trim();
-            if (!code) return;
-            state.voucherCode = code;
-            state.voucherApplied = true;
-            if (resultEl) {
-                resultEl.className = 'ev-voucher-result ev-voucher-result--ok';
-                resultEl.textContent = '\u2713 Code \u201c' + code + '\u201d wordt toegepast bij het boeken.';
+            // If voucher already applied, act as remove button
+            if (state.voucher) {
+                resetVoucher();
+                return;
             }
+
+            var code = voucherInput.value.trim().toUpperCase();
+            if (!code) return;
+
+            applyBtn.disabled = true;
+            applyBtn.textContent = 'Controleren...';
+
+            var fd = new FormData();
+            fd.append('action', 'echovisie_validate_voucher');
+            fd.append('nonce', CFG.nonce);
+            fd.append('code', code);
+
+            fetch(CFG.ajaxUrl, { method: 'POST', body: fd })
+                .then(function (r) { return r.json(); })
+                .then(function (resp) {
+                    applyBtn.disabled = false;
+                    if (resp.success) {
+                        state.voucher = {
+                            discount_pct: resp.data.discount_pct || 0,
+                            deduction: resp.data.deduction || 0,
+                            label: resp.data.label || 'Korting'
+                        };
+                        state.voucherCode = code;
+                        voucherInput.disabled = true;
+                        applyBtn.textContent = 'Verwijderen';
+                        setResult('ok', '\u2713 ' + resp.data.label + ' toegepast');
+                        updateSidebar();
+                    } else {
+                        setResult('err', resp.data && resp.data.message || 'Ongeldige code.');
+                        applyBtn.textContent = 'Toepassen';
+                    }
+                })
+                .catch(function () {
+                    applyBtn.disabled = false;
+                    applyBtn.textContent = 'Toepassen';
+                    setResult('err', 'Kon de code niet valideren.');
+                });
         });
 
-        // Reset if user changes the input
+        // Reset when user types a new code
         voucherInput.addEventListener('input', function () {
-            state.voucherApplied = false;
-            state.voucherCode = '';
-            if (resultEl) {
-                resultEl.className = 'ev-voucher-result';
-                resultEl.textContent = '';
-            }
+            if (state.voucher) resetVoucher();
         });
     }
 
@@ -1531,21 +1623,40 @@
 
         content.innerHTML = html;
 
-        // Discount
+        // Package discount
         var discountPct = state.packageQty >= 3 ? 0.20 : (state.packageQty >= 2 ? 0.10 : 0);
         var discountAmt = Math.round(subtotal * discountPct * 100) / 100;
         var total = Math.round((subtotal - discountAmt) * 100) / 100;
 
-        // Remove existing discount row
-        var existingDiscount = document.querySelector('.ev-sidebar__discount');
-        if (existingDiscount) existingDiscount.remove();
+        // Voucher discount (applied after package discount)
+        var voucherAmt = 0;
+        if (state.voucher) {
+            if (state.voucher.discount_pct > 0) {
+                voucherAmt += Math.round(total * (state.voucher.discount_pct / 100) * 100) / 100;
+            }
+            if (state.voucher.deduction > 0) {
+                voucherAmt += state.voucher.deduction;
+            }
+            voucherAmt = Math.min(voucherAmt, total);
+            total = Math.round((total - voucherAmt) * 100) / 100;
+        }
+
+        // Remove existing discount/voucher rows
+        var existing = document.querySelectorAll('.ev-sidebar__discount, .ev-sidebar__voucher');
+        existing.forEach(function (el) { el.remove(); });
 
         if (discountPct > 0) {
             var discountRow = document.createElement('div');
             discountRow.className = 'ev-sidebar__discount';
             discountRow.innerHTML = '<span>Pakketkorting (' + Math.round(discountPct * 100) + '%)</span><span>- ' + euro(discountAmt) + '</span>';
-            // Insert before total
             if (totalEl) totalEl.parentNode.insertBefore(discountRow, totalEl);
+        }
+
+        if (state.voucher && voucherAmt > 0) {
+            var voucherRow = document.createElement('div');
+            voucherRow.className = 'ev-sidebar__voucher';
+            voucherRow.innerHTML = '<span>' + state.voucher.label + '</span><span>- ' + euro(voucherAmt) + '</span>';
+            if (totalEl) totalEl.parentNode.insertBefore(voucherRow, totalEl);
         }
 
         if (totalEl) totalEl.style.display = '';
