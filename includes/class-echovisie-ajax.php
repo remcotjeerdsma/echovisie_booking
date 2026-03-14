@@ -155,10 +155,11 @@ class EchoVisie_Ajax {
                 $is_peak  = ( $hour >= $daytime_end ) || ( $weekend_on && ( $dow === 6 || $dow === 7 ) );
 
                 $result[] = array(
-                    'time'       => $time_str,
-                    'staff_id'   => $staff_id,
-                    'staff_name' => $staff_names[ $staff_id ] ?? 'Medewerker',
-                    'is_peak'    => $is_peak,
+                    'time'        => $time_str,
+                    'staff_id'    => $staff_id,
+                    'staff_name'  => $staff_names[ $staff_id ] ?? 'Medewerker',
+                    'is_peak'     => $is_peak,
+                    'is_adjacent' => false,
                 );
             }
         }
@@ -166,6 +167,37 @@ class EchoVisie_Ajax {
         usort( $result, function ( $a, $b ) {
             return strcmp( $a['time'], $b['time'] );
         } );
+
+        // Detect slots immediately adjacent to existing appointments (same staff).
+        // A 5% discount applies to these slots to encourage filling gaps.
+        if ( ! empty( $result ) ) {
+            $existing = \Bookly\Lib\Entities\Appointment::query()
+                ->whereGte( 'start_date', $date . ' 00:00:00' )
+                ->whereLte( 'start_date', $date . ' 23:59:59' )
+                ->whereIn( 'staff_id', $staff_ids )
+                ->fetchArray();
+
+            if ( ! empty( $existing ) ) {
+                foreach ( $result as &$slot_data ) {
+                    $slot_start = $date . ' ' . $slot_data['time'] . ':00';
+                    $slot_end_dt = new DateTime( $slot_start, $tz );
+                    $slot_end_dt->modify( "+{$duration} minutes" );
+                    $slot_end = $slot_end_dt->format( 'Y-m-d H:i:s' );
+
+                    foreach ( $existing as $appt ) {
+                        if ( (int) $appt['staff_id'] !== (int) $slot_data['staff_id'] ) {
+                            continue;
+                        }
+                        // Adjacent if slot ends exactly when appt starts, or slot starts exactly when appt ends
+                        if ( $appt['start_date'] === $slot_end || $appt['end_date'] === $slot_start ) {
+                            $slot_data['is_adjacent'] = true;
+                            break;
+                        }
+                    }
+                }
+                unset( $slot_data );
+            }
+        }
 
         return $result;
     }
@@ -236,11 +268,12 @@ class EchoVisie_Ajax {
         $s = get_option( 'echovisie_settings', echovisie_default_settings() );
 
         // Customer data.
-        $first_name = sanitize_text_field( $data['customer']['first_name'] ?? '' );
-        $last_name  = sanitize_text_field( $data['customer']['last_name'] ?? '' );
-        $email      = sanitize_email( $data['customer']['email'] ?? '' );
-        $phone      = sanitize_text_field( $data['customer']['phone'] ?? '' );
-        $notes      = sanitize_textarea_field( $data['customer']['notes'] ?? '' );
+        $first_name   = sanitize_text_field( $data['customer']['first_name'] ?? '' );
+        $last_name    = sanitize_text_field( $data['customer']['last_name'] ?? '' );
+        $email        = sanitize_email( $data['customer']['email'] ?? '' );
+        $phone        = sanitize_text_field( $data['customer']['phone'] ?? '' );
+        $notes        = sanitize_textarea_field( $data['customer']['notes'] ?? '' );
+        $voucher_code = sanitize_text_field( $data['voucher_code'] ?? '' );
 
         if ( ! $first_name || ! $email || ! $phone ) {
             wp_send_json_error( array( 'message' => 'Vul alle verplichte velden in.' ) );
@@ -343,10 +376,20 @@ class EchoVisie_Ajax {
             $userData->cart->add( $cart_item );
         }
 
-        // ── 4. Save via Bookly – creates customer, appointments, CustomerAppointment records ──
+        // ── 4. Apply coupon/voucher ───────────────────────────────────────────
+        // User-entered voucher takes priority; fall back to automatic package coupon.
+        if ( $voucher_code ) {
+            $userData->setCouponCode( $voucher_code );
+        } elseif ( $qty >= 3 && ! empty( $s['coupon_3pack'] ) ) {
+            $userData->setCouponCode( $s['coupon_3pack'] );
+        } elseif ( $qty >= 2 && ! empty( $s['coupon_2pack'] ) ) {
+            $userData->setCouponCode( $s['coupon_2pack'] );
+        }
+
+        // ── 5. Save via Bookly – creates customer, appointments, CustomerAppointment records ──
         $order = $userData->save( null );
 
-        // ── 5. Set internal note on each appointment after save ──────────────
+        // ── 6. Set internal note on each appointment after save ──────────────
         foreach ( $order->getItems() as $item_key => $item ) {
             if ( ! isset( $appt_data[ $item_key ] ) ) {
                 continue;
@@ -378,12 +421,12 @@ class EchoVisie_Ajax {
             }
         }
 
-        // ── 6. Send Bookly notifications (email, SMS, etc.) ──────────────────
+        // ── 7. Send Bookly notifications (email, SMS, etc.) ──────────────────
         if ( class_exists( '\Bookly\Lib\Notifications\Cart\Sender' ) ) {
             \Bookly\Lib\Notifications\Cart\Sender::send( $order );
         }
 
-        // ── 7. Build response ────────────────────────────────────────────────
+        // ── 8. Build response ────────────────────────────────────────────────
         $created = array();
         foreach ( $appt_data as $index => $row ) {
             $created[] = array(

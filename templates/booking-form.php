@@ -61,7 +61,7 @@
                     </div>
                 </div>
 
-                <div id="ev-preg-info" class="ev-preg-info" style="display:none;">
+                <div id="ev-preg-info" class="ev-preg-info">
                     <div class="ev-preg-badge">
                         <span class="ev-preg-badge__week">—</span>
                         <span class="ev-preg-badge__label">weken zwanger</span>
@@ -80,6 +80,10 @@
                             <span>30 wk</span>
                             <span>40 wk</span>
                         </div>
+                    </div>
+                    <div class="ev-week-slider-wrap">
+                        <label for="ev-week-slider">Of sleep de schuifregelaar om je zwangerschapsweek in te stellen</label>
+                        <input type="range" id="ev-week-slider" class="ev-week-slider" min="0" max="42" step="1" value="0">
                     </div>
                 </div>
 
@@ -174,6 +178,14 @@
                     <div class="ev-form-field ev-form-field--full">
                         <label for="ev-notes">Opmerkingen</label>
                         <textarea id="ev-notes" class="ev-input ev-textarea" rows="3"></textarea>
+                    </div>
+                    <div class="ev-form-field ev-form-field--full">
+                        <label for="ev-voucher">Kortingscode (optioneel)</label>
+                        <div class="ev-voucher-row">
+                            <input type="text" id="ev-voucher" class="ev-input" placeholder="Vul je code in">
+                            <button type="button" class="ev-btn ev-btn--outline" id="ev-apply-voucher">Toepassen</button>
+                        </div>
+                        <div id="ev-voucher-result" class="ev-voucher-result"></div>
                     </div>
                 </div>
 
