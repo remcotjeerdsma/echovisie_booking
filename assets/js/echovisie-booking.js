@@ -51,6 +51,9 @@
         customerPhone: '',
         customerNotes: '',
 
+        voucherCode: '',
+        voucherApplied: false,
+
         bookingInProgress: false
     };
 
@@ -85,6 +88,7 @@
         bindStep2();
         bindExtrasStep();
         bindStep4();
+        bindVoucher();
         bindSidebar();
     }
 
@@ -105,6 +109,7 @@
             btn.textContent = name;
             btn.setAttribute('data-month', idx + 1);
             btn.addEventListener('click', function () {
+                if (btn.disabled) return;
                 // Deselect all, select this one
                 grid.querySelectorAll('.ev-month-btn').forEach(function (b) {
                     b.classList.remove('ev-month-btn--selected');
@@ -114,6 +119,53 @@
                 onDateChange();
             });
             grid.appendChild(btn);
+        });
+
+        updateMonthButtonStates();
+    }
+
+    function updateMonthButtonStates() {
+        var grid = document.getElementById('ev-month-grid');
+        if (!grid) return;
+
+        var day = parseInt(state.pregDay, 10);
+        if (isNaN(day) || day < 1 || day > 31) day = 1;
+
+        var now = new Date();
+        var year = now.getFullYear();
+
+        grid.querySelectorAll('.ev-month-btn').forEach(function (btn) {
+            var month = parseInt(btn.getAttribute('data-month'), 10);
+            var valid = false;
+
+            if (state.pregType === 'due') {
+                // Due date: must be between 2 weeks ago and 9 months ahead
+                var d = new Date(year, month - 1, day);
+                var twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+                if (d < twoWeeksAgo) d = new Date(year + 1, month - 1, day);
+                var nineMonthsAhead = new Date(); nineMonthsAhead.setMonth(nineMonthsAhead.getMonth() + 9);
+                valid = d >= twoWeeksAgo && d <= nineMonthsAhead;
+            } else {
+                // LMP: must be within past 9 months (not in the future)
+                var d = new Date(year, month - 1, day);
+                if (d > now) d = new Date(year - 1, month - 1, day);
+                var nineMonthsAgo = new Date(); nineMonthsAgo.setMonth(nineMonthsAgo.getMonth() - 9);
+                valid = d <= now && d >= nineMonthsAgo;
+            }
+
+            btn.disabled = !valid;
+            if (!valid) {
+                btn.classList.add('ev-month-btn--disabled');
+                // Deselect if this was the active month
+                if (btn.classList.contains('ev-month-btn--selected')) {
+                    btn.classList.remove('ev-month-btn--selected');
+                    state.pregMonth = '';
+                    var nextBtn = document.getElementById('ev-next-0');
+                    if (nextBtn) nextBtn.disabled = true;
+                }
+            } else {
+                btn.classList.remove('ev-month-btn--disabled');
+            }
         });
     }
 
@@ -125,6 +177,7 @@
                 toggleBtns.forEach(function (b) { b.classList.remove('ev-toggle-btn--active'); });
                 btn.classList.add('ev-toggle-btn--active');
                 state.pregType = btn.getAttribute('data-type');
+                updateMonthButtonStates();
                 onDateChange();
             });
         });
@@ -134,12 +187,37 @@
         if (dayInput) {
             dayInput.addEventListener('input', function () {
                 state.pregDay = this.value;
+                updateMonthButtonStates();
                 onDateChange();
             });
-            // Also handle blur for cases where input event doesn't fire (e.g. autofill)
             dayInput.addEventListener('change', function () {
                 state.pregDay = this.value;
+                updateMonthButtonStates();
                 onDateChange();
+            });
+        }
+
+        // Draggable week slider
+        var weekSlider = document.getElementById('ev-week-slider');
+        if (weekSlider) {
+            weekSlider.addEventListener('input', function () {
+                var week = parseInt(this.value, 10);
+                state.pregnancyWeek = week;
+
+                // Derive dates from the week so milestone suggestions work
+                var now = new Date();
+                var lmp = new Date(now.getTime());
+                lmp.setDate(lmp.getDate() - week * 7);
+                state.pregDate = lmp;
+                var due = new Date(lmp.getTime());
+                due.setDate(due.getDate() + 280);
+                state.dueDate = due;
+
+                // Enable Next button
+                var nextBtn = document.getElementById('ev-next-0');
+                if (nextBtn) nextBtn.disabled = false;
+
+                updatePregnancyUI();
             });
         }
 
@@ -215,15 +293,19 @@
         var info = document.getElementById('ev-preg-info');
         if (!info) return;
 
-        info.style.display = '';
-
         var weekBadge = info.querySelector('.ev-preg-badge__week');
-        if (weekBadge) weekBadge.textContent = state.pregnancyWeek;
+        if (weekBadge) weekBadge.textContent = state.pregnancyWeek !== null ? state.pregnancyWeek : '—';
 
-        // Progress bar (40 weeks total)
-        var pct = Math.min(100, (state.pregnancyWeek / 40) * 100);
-        var progress = info.querySelector('.ev-timeline__progress');
-        if (progress) progress.style.width = pct + '%';
+        if (state.pregnancyWeek !== null) {
+            // Progress bar (40 weeks total)
+            var pct = Math.min(100, (state.pregnancyWeek / 40) * 100);
+            var progress = info.querySelector('.ev-timeline__progress');
+            if (progress) progress.style.width = pct + '%';
+
+            // Sync slider
+            var slider = document.getElementById('ev-week-slider');
+            if (slider) slider.value = state.pregnancyWeek;
+        }
     }
 
     /* ═══════════════════════════════════════════════════════
@@ -300,6 +382,30 @@
             items += '</div>';
 
             card.innerHTML = header + desc + items;
+
+            // For packages: show each appointment as a mini-card
+            if (sug.milestones && sug.milestones.length > 1) {
+                var apptsDiv = document.createElement('div');
+                apptsDiv.className = 'ev-suggestion__appts';
+                sug.milestones.forEach(function (m, i) {
+                    var dur = sug.durations[i] || sug.durations[0];
+                    var apptCard = document.createElement('div');
+                    apptCard.className = 'ev-suggestion__appt-card';
+
+                    var nameEl = document.createElement('div');
+                    nameEl.className = 'ev-suggestion__appt-card__name';
+                    nameEl.innerHTML = m.name + ' <span class="ev-suggestion__appt-card__week">week\u00a0' + m.weekStart + '\u2013' + m.weekEnd + '</span>';
+
+                    var priceEl = document.createElement('div');
+                    priceEl.className = 'ev-suggestion__appt-card__price';
+                    priceEl.textContent = euro(calcBasePrice(dur));
+
+                    apptCard.appendChild(nameEl);
+                    apptCard.appendChild(priceEl);
+                    apptsDiv.appendChild(apptCard);
+                });
+                card.appendChild(apptsDiv);
+            }
 
             card.addEventListener('click', function () {
                 selectSuggestion(idx, suggestions);
@@ -567,17 +673,10 @@
 
         // Recording (only if not free)
         if (!rules.recording_free) {
-            var recRow = createAddonToggle(
-                'add_recording', 'Volledige opname', PRICING.priceRecording, appt, idx, true
-            );
-            container.appendChild(recRow);
-            // Note about USB requirement
-            if (!rules.usb_free) {
-                var note = document.createElement('div');
-                note.className = 'ev-addon-note';
-                note.textContent = 'Vereist USB-stick';
-                container.appendChild(note);
-            }
+            container.appendChild(createAddonToggle(
+                'add_recording', 'Volledige opname' + (!rules.usb_free ? ' (incl. USB)' : ''),
+                PRICING.priceRecording, appt, idx, true
+            ));
         }
 
         // Extra A4 prints
@@ -594,82 +693,89 @@
             appt, idx
         ));
 
-        // Gender opt-out
-        var genderRow = document.createElement('div');
-        genderRow.className = 'ev-addon-row';
-        var genderLabel = document.createElement('label');
-        var genderCb = document.createElement('input');
-        genderCb.type = 'checkbox';
-        genderCb.checked = !appt.genderOptOut;
-        genderCb.addEventListener('change', function () {
-            appt.genderOptOut = !this.checked;
-            updateSidebar();
-        });
-        genderLabel.appendChild(genderCb);
-        genderLabel.appendChild(document.createTextNode(' Geslachtsbepaling'));
-        genderRow.appendChild(genderLabel);
-        var genderPrice = document.createElement('span');
-        genderPrice.className = 'ev-addon-price ev-addon-price--free';
-        genderPrice.textContent = 'Gratis';
-        genderRow.appendChild(genderPrice);
-        container.appendChild(genderRow);
+        // Gender (always shown – can opt out)
+        container.appendChild(createAddonToggle(
+            '_gender_include', 'Geslachtsbepaling', 0, appt, idx, false, true
+        ));
     }
 
-    function createAddonToggle(key, label, price, appt, idx, requiresUsb) {
-        var row = document.createElement('div');
-        row.className = 'ev-addon-row';
+    function createAddonToggle(key, label, price, appt, idx, requiresUsb, isFree) {
+        var isActive;
+        if (key === '_gender_include') {
+            isActive = !appt.genderOptOut;
+        } else {
+            isActive = !!appt.addons[key];
+        }
 
-        var lbl = document.createElement('label');
+        var item = document.createElement('div');
+        item.className = 'ev-addon-item' + (isActive ? ' ev-addon-item--active' : '');
+
+        // Toggle switch
+        var sw = document.createElement('label');
+        sw.className = 'ev-toggle-sw';
         var cb = document.createElement('input');
         cb.type = 'checkbox';
-        cb.checked = !!appt.addons[key];
-        cb.addEventListener('change', function () {
-            appt.addons[key] = this.checked;
+        cb.checked = isActive;
+        var track = document.createElement('span');
+        track.className = 'ev-toggle-sw__track';
+        sw.appendChild(cb);
+        sw.appendChild(track);
 
-            // If recording requires USB, auto-select USB
-            if (key === 'add_recording' && this.checked) {
-                appt.addons['add_usb'] = true;
-                renderAppointmentConfigs();
-            }
-            // If USB unchecked, uncheck recording
-            if (key === 'add_usb' && !this.checked && appt.addons['add_recording']) {
-                appt.addons['add_recording'] = false;
-                renderAppointmentConfigs();
-            }
+        // Info
+        var infoDiv = document.createElement('div');
+        infoDiv.className = 'ev-addon-item__info';
+        var labelEl = document.createElement('span');
+        labelEl.className = 'ev-addon-item__label';
+        labelEl.textContent = label;
+        infoDiv.appendChild(labelEl);
 
-            updateSidebar();
-        });
-        lbl.appendChild(cb);
-        lbl.appendChild(document.createTextNode(' ' + label));
-        row.appendChild(lbl);
-
+        // Price
         var priceEl = document.createElement('span');
-        priceEl.className = 'ev-addon-price';
-        priceEl.textContent = '+ ' + euro(price);
-        row.appendChild(priceEl);
+        priceEl.className = 'ev-addon-item__price' + (isFree ? ' ev-addon-item__price--free' : '');
+        priceEl.textContent = isFree ? 'Gratis' : (price > 0 ? '+ ' + euro(price) : 'Gratis');
 
-        return row;
+        item.appendChild(sw);
+        item.appendChild(infoDiv);
+        item.appendChild(priceEl);
+
+        function toggle(checked) {
+            cb.checked = checked;
+            item.classList.toggle('ev-addon-item--active', checked);
+
+            if (key === '_gender_include') {
+                appt.genderOptOut = !checked;
+            } else {
+                appt.addons[key] = checked;
+                if (key === 'add_recording' && checked) {
+                    appt.addons['add_usb'] = true;
+                    renderAppointmentConfigs();
+                }
+                if (key === 'add_usb' && !checked && appt.addons['add_recording']) {
+                    appt.addons['add_recording'] = false;
+                    renderAppointmentConfigs();
+                }
+            }
+            updateSidebar();
+        }
+
+        cb.addEventListener('change', function () { toggle(this.checked); });
+        // Allow clicking anywhere on the card (except the checkbox itself which fires change)
+        item.addEventListener('click', function (e) {
+            if (e.target === cb || e.target === track || e.target === sw) return;
+            toggle(!cb.checked);
+        });
+
+        return item;
     }
 
     function createAddonQty(key, label, unitPrice, freeText, appt, idx) {
-        var row = document.createElement('div');
-        row.className = 'ev-addon-row';
-
-        var lbl = document.createElement('span');
-        lbl.style.fontSize = '.88rem';
-        lbl.style.fontWeight = '600';
-        var text = label;
-        if (freeText) text += ' <small style="color:var(--ev-text-muted);">(' + freeText + ')</small>';
-        lbl.innerHTML = text;
-        row.appendChild(lbl);
-
-        var right = document.createElement('div');
-        right.style.display = 'flex';
-        right.style.alignItems = 'center';
-        right.style.gap = '.6rem';
+        var item = document.createElement('div');
+        item.className = 'ev-addon-item ev-addon-item--qty';
 
         var qty = parseInt(appt.addons[key] || 0, 10);
+        if (qty > 0) item.classList.add('ev-addon-item--active');
 
+        // Qty control
         var control = document.createElement('div');
         control.className = 'ev-qty-control';
 
@@ -689,43 +795,50 @@
         plusBtn.className = 'ev-qty-btn';
         plusBtn.textContent = '+';
 
-        minusBtn.addEventListener('click', function () {
-            var v = parseInt(valInput.value, 10);
-            if (v > 0) {
-                v--;
-                valInput.value = v;
-                appt.addons[key] = v;
-                priceEl.textContent = v > 0 ? '+ ' + euro(v * unitPrice) : euro(0);
-                updateSidebar();
-            }
-        });
-
-        plusBtn.addEventListener('click', function () {
-            var v = parseInt(valInput.value, 10);
-            if (v < 20) {
-                v++;
-                valInput.value = v;
-                appt.addons[key] = v;
-                priceEl.textContent = '+ ' + euro(v * unitPrice);
-                updateSidebar();
-            }
-        });
-
         control.appendChild(minusBtn);
         control.appendChild(valInput);
         control.appendChild(plusBtn);
 
+        // Info section
+        var infoDiv = document.createElement('div');
+        infoDiv.className = 'ev-addon-item__info';
+        var labelEl = document.createElement('span');
+        labelEl.className = 'ev-addon-item__label';
+        labelEl.textContent = label;
+        infoDiv.appendChild(labelEl);
+        if (freeText) {
+            var subEl = document.createElement('span');
+            subEl.className = 'ev-addon-item__sub';
+            subEl.textContent = freeText;
+            infoDiv.appendChild(subEl);
+        }
+
         var priceEl = document.createElement('span');
-        priceEl.className = 'ev-addon-price';
+        priceEl.className = 'ev-addon-item__price';
         priceEl.textContent = qty > 0 ? '+ ' + euro(qty * unitPrice) : euro(0);
-        priceEl.style.minWidth = '60px';
-        priceEl.style.textAlign = 'right';
 
-        right.appendChild(control);
-        right.appendChild(priceEl);
-        row.appendChild(right);
+        item.appendChild(control);
+        item.appendChild(infoDiv);
+        item.appendChild(priceEl);
 
-        return row;
+        function setQty(v) {
+            valInput.value = v;
+            appt.addons[key] = v;
+            priceEl.textContent = v > 0 ? '+ ' + euro(v * unitPrice) : euro(0);
+            item.classList.toggle('ev-addon-item--active', v > 0);
+            updateSidebar();
+        }
+
+        minusBtn.addEventListener('click', function () {
+            var v = parseInt(valInput.value, 10);
+            if (v > 0) setQty(v - 1);
+        });
+        plusBtn.addEventListener('click', function () {
+            var v = parseInt(valInput.value, 10);
+            if (v < 20) setQty(v + 1);
+        });
+
+        return item;
     }
 
     function updateStep1NextButton() {
@@ -943,7 +1056,7 @@
             var optLegend = document.createElement('div');
             optLegend.className = 'ev-calendar__optimal-legend';
             optLegend.innerHTML =
-                '<span class="ev-calendar__optimal-swatch"></span>' +
+                '\uD83D\uDC4D <span class="ev-calendar__optimal-swatch"></span>' +
                 'Aanbevolen periode voor <strong>' + appt.milestone.name + '</strong>' +
                 ' (week\u00a0' + appt.milestone.weekStart + '\u2013' + appt.milestone.weekEnd + ')';
             container.appendChild(optLegend);
@@ -1065,12 +1178,16 @@
         var grid = document.createElement('div');
         grid.className = 'ev-timeslots__grid';
 
+        var hasAdjacent = slots.some(function (s) { return s.is_adjacent; });
+
         slots.forEach(function (slot) {
             var btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'ev-timeslot';
 
-            if (!slot.is_peak) {
+            if (slot.is_adjacent) {
+                btn.classList.add('ev-timeslot--adjacent');
+            } else if (!slot.is_peak) {
                 btn.classList.add('ev-timeslot--cheap');
             }
 
@@ -1078,11 +1195,14 @@
                 btn.classList.add('ev-timeslot--selected');
             }
 
-            btn.innerHTML = slot.time + '<span class="ev-timeslot__staff">' + slot.staff_name + '</span>';
+            var html = slot.time + '<span class="ev-timeslot__staff">' + slot.staff_name + '</span>';
+            if (slot.is_adjacent) {
+                html += '<span class="ev-timeslot__badge">5% korting</span>';
+            }
+            btn.innerHTML = html;
 
             btn.addEventListener('click', function () {
                 appt.selectedSlot = slot;
-                // Re-render slots to update selection
                 renderTimeslots(container, data, appt, apptIdx);
                 updateStep2NextButton();
                 updateSidebar();
@@ -1096,7 +1216,11 @@
         // Legend
         var legend = document.createElement('div');
         legend.className = 'ev-timeslot-legend';
-        legend.innerHTML = '<span><span class="ev-timeslot-legend__dot ev-timeslot-legend__dot--cheap"></span>Voordelig (dagtarief)</span>' +
+        var legendHtml = '<span><span class="ev-timeslot-legend__dot ev-timeslot-legend__dot--cheap"></span>Voordelig (dagtarief)</span>';
+        if (hasAdjacent) {
+            legendHtml += '<span><span class="ev-timeslot-legend__dot ev-timeslot-legend__dot--adjacent"></span>Aansluitkorting (5%)</span>';
+        }
+        legend.innerHTML = legendHtml +
             '<span><span class="ev-timeslot-legend__dot ev-timeslot-legend__dot--peak"></span>Avond/weekend (+ ' + euro(PRICING.surchargeAmount) + ')</span>';
         container.appendChild(legend);
     }
@@ -1174,7 +1298,8 @@
                 type: state.pregType,
                 date: state.dueDate ? formatDateISO(state.dueDate) : '',
                 week: state.pregnancyWeek || 0
-            }
+            },
+            voucher_code: state.voucherApplied ? state.voucherCode : ''
         };
 
         var formData = new FormData();
@@ -1262,6 +1387,37 @@
     }
 
     /* ═══════════════════════════════════════════════════════
+       Voucher / coupon code
+       ═══════════════════════════════════════════════════════ */
+    function bindVoucher() {
+        var applyBtn = document.getElementById('ev-apply-voucher');
+        var voucherInput = document.getElementById('ev-voucher');
+        var resultEl = document.getElementById('ev-voucher-result');
+        if (!applyBtn || !voucherInput) return;
+
+        applyBtn.addEventListener('click', function () {
+            var code = voucherInput.value.trim();
+            if (!code) return;
+            state.voucherCode = code;
+            state.voucherApplied = true;
+            if (resultEl) {
+                resultEl.className = 'ev-voucher-result ev-voucher-result--ok';
+                resultEl.textContent = '\u2713 Code \u201c' + code + '\u201d wordt toegepast bij het boeken.';
+            }
+        });
+
+        // Reset if user changes the input
+        voucherInput.addEventListener('input', function () {
+            state.voucherApplied = false;
+            state.voucherCode = '';
+            if (resultEl) {
+                resultEl.className = 'ev-voucher-result';
+                resultEl.textContent = '';
+            }
+        });
+    }
+
+    /* ═══════════════════════════════════════════════════════
        Step navigation
        ═══════════════════════════════════════════════════════ */
     function setStep(n) {
@@ -1341,7 +1497,11 @@
             if (appt.selectedSlot && appt.selectedSlot.is_peak) {
                 surcharge = PRICING.surchargeAmount || 0;
             }
-            var apptTotal = base + addonTotal + surcharge;
+            var adjacentDiscount = 0;
+            if (appt.selectedSlot && appt.selectedSlot.is_adjacent) {
+                adjacentDiscount = Math.round((base + addonTotal + surcharge) * 0.05 * 100) / 100;
+            }
+            var apptTotal = base + addonTotal + surcharge - adjacentDiscount;
             subtotal += apptTotal;
 
             html += '<div class="ev-sidebar__appt">';
