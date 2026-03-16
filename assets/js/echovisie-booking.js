@@ -1197,10 +1197,10 @@
         if (!info.available) {
             btn.classList.add('ev-calendar__day--unavailable');
             btn.disabled = true;
-        } else if (info.has_cheap) {
-            btn.classList.add('ev-calendar__day--cheap');
         } else if (info.has_adjacent) {
             btn.classList.add('ev-calendar__day--adjacent');
+        } else if (info.has_cheap) {
+            btn.classList.add('ev-calendar__day--cheap');
         } else if (info.peak_only) {
             btn.classList.add('ev-calendar__day--peak-only');
         }
