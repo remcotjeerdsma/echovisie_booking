@@ -344,7 +344,8 @@
 /* Timeline */
 .ev-timeline {
     margin-top: .25rem;
-    padding-top: 46px;   /* room for the floating week label */
+    padding-top: 72px;   /* room for the enlarged floating week label */
+    padding-bottom: 56px; /* room for marker tooltips shown below the bar */
 }
 .ev-timeline__bar {
     position: relative;
@@ -375,19 +376,19 @@
 /* ── Floating week label above thumb ───────────────────── */
 .ev-timeline__week-label {
     position: absolute;
-    bottom: calc(100% + 10px);   /* 10px gap above the bar top */
+    bottom: calc(100% + 14px);   /* gap above the bar top */
     transform: translateX(-50%);
     background: var(--ev-charcoal);
     color: var(--ev-text-light);
-    padding: .22rem .6rem;
+    padding: .42rem 1.05rem;
     border-radius: 50px;
-    font-size: .75rem;
-    font-weight: 600;
+    font-size: 1.45rem;
+    font-weight: 700;
     white-space: nowrap;
     pointer-events: none;
     z-index: 5;
     transition: left .1s ease;
-    letter-spacing: .01em;
+    letter-spacing: -.01em;
 }
 /* Connecting line */
 .ev-timeline__week-label::after {
@@ -396,10 +397,10 @@
     top: 100%;
     left: 50%;
     transform: translateX(-50%);
-    width: 1.5px;
-    height: 10px;
+    width: 2px;
+    height: 14px;
     background: var(--ev-charcoal);
-    opacity: .5;
+    opacity: .45;
 }
 
 /* ── Timeline markers with CSS tooltips ────────────────── */
@@ -419,7 +420,7 @@
 }
 .ev-timeline__marker:hover { transform: translate(-50%, -50%) scale(1.4); }
 
-/* CSS tooltip */
+/* CSS tooltip — shown below the bar */
 .ev-timeline__marker::before,
 .ev-timeline__marker::after {
     opacity: 0;
@@ -430,7 +431,7 @@
 }
 .ev-timeline__marker::after {
     content: attr(title);
-    bottom: calc(100% + 10px);
+    top: calc(100% + 10px);
     transform: translateX(-50%);
     background: var(--ev-charcoal);
     color: var(--ev-text-light);
@@ -445,10 +446,10 @@
 }
 .ev-timeline__marker::before {
     content: '';
-    bottom: calc(100% + 4px);
+    top: calc(100% + 4px);
     transform: translateX(-50%);
     border: 5px solid transparent;
-    border-top-color: var(--ev-charcoal);
+    border-bottom-color: var(--ev-charcoal);
     z-index: 20;
 }
 .ev-timeline__marker:hover::after,
