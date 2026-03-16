@@ -976,6 +976,28 @@
 .ev-calendar__day--disabled { opacity: .2; cursor: not-allowed; pointer-events: none; }
 .ev-calendar__day--empty { visibility: hidden; }
 
+/* Day has no available slots → invisible (takes up grid space but not distracting) */
+.ev-calendar__day--unavailable {
+    opacity: 0;
+    cursor: default;
+    pointer-events: none;
+}
+
+/* Day has slots but all are peak (evening/weekend) → small cost indicator */
+.ev-calendar__day--peak-only {
+    position: relative;
+}
+.ev-calendar__day--peak-only::after {
+    content: '€';
+    position: absolute;
+    top: 2px; right: 3px;
+    font-size: .5rem;
+    font-weight: 700;
+    color: var(--ev-primary-dark);
+    line-height: 1;
+    pointer-events: none;
+}
+
 /* Optimal period legend — shown ABOVE the calendar grid */
 .ev-calendar__optimal-legend {
     display: flex;
@@ -1120,6 +1142,24 @@
 .ev-sidebar__appt-meta { font-size: .77rem; color: var(--ev-text-muted); line-height: 1.5; margin-top: .35rem; }
 
 .ev-sidebar__appt-price { font-size: .9rem; font-weight: 700; color: var(--ev-text); margin-top: .3rem; }
+
+/* Per-appointment price breakdown (shown when surcharge or discount applies) */
+.ev-sidebar__price-breakdown {
+    margin-top: .35rem;
+    border-top: 1px solid var(--ev-border);
+    padding-top: .3rem;
+    display: flex;
+    flex-direction: column;
+    gap: .12rem;
+}
+.ev-sidebar__price-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: .75rem;
+    color: var(--ev-text-muted);
+}
+.ev-sidebar__price-row--surcharge { color: var(--ev-primary-dark); }
+.ev-sidebar__price-row--discount  { color: var(--ev-success); }
 .ev-sidebar__discount,
 .ev-sidebar__voucher {
     display: flex;

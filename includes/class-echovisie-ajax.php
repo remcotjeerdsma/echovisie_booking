@@ -16,12 +16,142 @@ class EchoVisie_Ajax {
         // Public AJAX (logged-in + logged-out)
         add_action( 'wp_ajax_echovisie_get_slots', array( $this, 'handle_get_slots' ) );
         add_action( 'wp_ajax_nopriv_echovisie_get_slots', array( $this, 'handle_get_slots' ) );
+        add_action( 'wp_ajax_echovisie_get_month_availability', array( $this, 'handle_get_month_availability' ) );
+        add_action( 'wp_ajax_nopriv_echovisie_get_month_availability', array( $this, 'handle_get_month_availability' ) );
         add_action( 'wp_ajax_echovisie_book', array( $this, 'handle_book' ) );
         add_action( 'wp_ajax_nopriv_echovisie_book', array( $this, 'handle_book' ) );
         add_action( 'wp_ajax_echovisie_validate_voucher', array( $this, 'handle_validate_voucher' ) );
         add_action( 'wp_ajax_nopriv_echovisie_validate_voucher', array( $this, 'handle_validate_voucher' ) );
         add_action( 'wp_ajax_nopriv_echovisie_mollie_webhook', array( $this, 'handle_mollie_webhook' ) );
         add_action( 'wp_ajax_echovisie_mollie_webhook', array( $this, 'handle_mollie_webhook' ) );
+    }
+
+    /* ──────────────────────────────────────────────────────
+     * GET MONTH AVAILABILITY
+     * Returns per-day availability flags for a whole calendar month:
+     *   available  – at least one open slot exists
+     *   peak_only  – every open slot is a peak (evening/weekend) slot
+     * Uses a single Bookly Finder pass for the whole month.
+     * ────────────────────────────────────────────────────── */
+    public function handle_get_month_availability() {
+        check_ajax_referer( 'echovisie_nonce', 'nonce' );
+
+        $service_id = intval( $_POST['service_id'] ?? 0 );
+        $year       = intval( $_POST['year']       ?? 0 );
+        $month      = intval( $_POST['month']      ?? 0 );
+        $duration   = intval( $_POST['duration']   ?? 10 );
+
+        if ( ! $service_id || ! $year || $month < 1 || $month > 12 ) {
+            wp_send_json_error( array( 'message' => 'Ontbrekende gegevens.' ) );
+        }
+
+        if ( ! class_exists( '\Bookly\Lib\Slots\Finder' )
+            || ! class_exists( '\Bookly\Lib\UserBookingData' )
+            || ! class_exists( '\Bookly\Lib\ChainItem' ) ) {
+            wp_send_json_success( array( 'days' => array() ) );
+        }
+
+        $s = get_option( 'echovisie_settings', echovisie_default_settings() );
+
+        $staff_ids = array();
+        for ( $i = 1; $i <= 3; $i++ ) {
+            $sid = intval( $s[ "staff_{$i}_id" ] ?? 0 );
+            if ( $sid > 0 ) {
+                $staff_ids[] = $sid;
+            }
+        }
+
+        if ( empty( $staff_ids ) ) {
+            wp_send_json_success( array( 'days' => array() ) );
+        }
+
+        $tz           = wp_timezone();
+        $today        = ( new DateTime( 'now', $tz ) )->format( 'Y-m-d' );
+        $days_in_month = (int) ( new DateTime( sprintf( '%04d-%02d-01', $year, $month ), $tz ) )
+                              ->format( 't' );
+        $date_from    = sprintf( '%04d-%02d-01', $year, $month );
+        $date_to      = sprintf( '%04d-%02d-%02d', $year, $month, $days_in_month );
+        $fetch_from   = max( $date_from, $today );
+
+        // Single Finder pass over the whole month.
+        $userData   = new \Bookly\Lib\UserBookingData( 'echovisie_month_' . uniqid() );
+        $chain_item = new \Bookly\Lib\ChainItem();
+        $chain_item
+            ->setServiceId( $service_id )
+            ->setStaffIds( $staff_ids )
+            ->setNumberOfPersons( 1 )
+            ->setQuantity( 1 )
+            ->setUnits( 1 );
+
+        $userData->chain->clear();
+        $userData->chain->add( $chain_item );
+
+        $userData
+            ->setDateFrom( $fetch_from )
+            ->setDays( array( 1, 2, 3, 4, 5, 6, 7 ) )
+            ->setTimeFrom( null )
+            ->setTimeTo( null )
+            ->setSlots( array() )
+            ->setEditCartKeys( array() );
+
+        $date_to_stop = $date_to;
+        $callback_stop = function( $client_dp ) use ( $date_to_stop ) {
+            return $client_dp->format( 'Y-m-d' ) > $date_to_stop ? 1 : 0;
+        };
+
+        $finder = new \Bookly\Lib\Slots\Finder( $userData, null, $callback_stop );
+        $finder->prepare()->load();
+        $all_slots = $finder->getSlots();
+
+        // Cache peak windows per weekday (lazy-loaded on first day of each weekday).
+        $peak_windows_cache = array(); // bookly_day_idx => windows array
+
+        $days = array();
+        for ( $d = 1; $d <= $days_in_month; $d++ ) {
+            $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $d );
+
+            // Past days are unavailable.
+            if ( $date_str < $today ) {
+                $days[ $date_str ] = array( 'available' => false, 'peak_only' => false );
+                continue;
+            }
+
+            if ( empty( $all_slots[ $date_str ] ) ) {
+                $days[ $date_str ] = array( 'available' => false, 'peak_only' => false );
+                continue;
+            }
+
+            $dt             = new DateTime( $date_str, $tz );
+            $bookly_day_idx = intval( $dt->format( 'N' ) ) % 7 + 1;
+
+            if ( ! isset( $peak_windows_cache[ $bookly_day_idx ] ) ) {
+                $peak_windows_cache[ $bookly_day_idx ] = $this->load_bookly_peak_windows( $staff_ids, $bookly_day_idx );
+            }
+            $peak_windows = $peak_windows_cache[ $bookly_day_idx ];
+
+            $has_any  = false;
+            $all_peak = true;
+
+            foreach ( $all_slots[ $date_str ] as $slot ) {
+                if ( ! $slot->notFullyBooked() ) {
+                    continue;
+                }
+                $has_any  = true;
+                $staff_id = $slot->staffId();
+                $time_str = $slot->start()->toClientTz()->format( 'H:i' );
+                $is_peak  = $this->time_in_windows( $time_str, $peak_windows[ $staff_id ] ?? array() );
+                if ( ! $is_peak ) {
+                    $all_peak = false;
+                }
+            }
+
+            $days[ $date_str ] = array(
+                'available' => $has_any,
+                'peak_only' => $has_any && $all_peak,
+            );
+        }
+
+        wp_send_json_success( array( 'days' => $days ) );
     }
 
     /* ──────────────────────────────────────────────────────

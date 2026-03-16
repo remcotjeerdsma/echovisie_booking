@@ -57,6 +57,10 @@
         slotsData: {},
         slotsLoading: {},
 
+        // Month availability cache: key = "apptIdx:YYYY-MM" → { "YYYY-MM-DD": {available,peak_only} }
+        monthAvail: {},
+        monthAvailLoading: {},
+
         // Customer
         customerFirstName: '',
         customerLastName: '',
@@ -1114,12 +1118,19 @@
             grid.appendChild(empty);
         }
 
+        // Month availability cache key
+        var monthKey = apptIdx + ':' + year + '-' + (month + 1);
+        var avail = state.monthAvail[monthKey] || null;
+
         for (var d = 1; d <= daysInMonth; d++) {
             var dayDate = new Date(year, month, d);
             var dayEl = document.createElement('button');
             dayEl.type = 'button';
             dayEl.className = 'ev-calendar__day';
             dayEl.textContent = d;
+
+            var dateStr = formatDateISO(dayDate);
+            dayEl.setAttribute('data-date', dateStr);
 
             if (dayDate < today) {
                 dayEl.classList.add('ev-calendar__day--disabled');
@@ -1139,6 +1150,17 @@
                     dayEl.classList.add('ev-calendar__day--selected');
                 }
 
+                // Apply cached availability info immediately
+                if (avail && avail[dateStr]) {
+                    var info = avail[dateStr];
+                    if (!info.available) {
+                        dayEl.classList.add('ev-calendar__day--unavailable');
+                        dayEl.disabled = true;
+                    } else if (info.peak_only) {
+                        dayEl.classList.add('ev-calendar__day--peak-only');
+                    }
+                }
+
                 (function (dd) {
                     dayEl.addEventListener('click', function () {
                         appt.date = dd;
@@ -1155,6 +1177,11 @@
         }
 
         container.appendChild(grid);
+
+        // Kick off month availability fetch if not yet cached
+        if (!avail && !state.monthAvailLoading[monthKey]) {
+            loadMonthAvailability(apptIdx, year, month, container);
+        }
 
         // Banner above the grid: optimal range for this milestone
         if (optStart && optEnd && appt.milestone) {
@@ -1220,6 +1247,55 @@
             .catch(function () {
                 state.slotsLoading[apptIdx] = false;
                 slotsEl.innerHTML = '<div class="ev-error">Kon geen verbinding maken. Probeer het opnieuw.</div>';
+            });
+    }
+
+    /**
+     * Fetch month-level availability from the server, then apply the result to
+     * the already-rendered calendar container without a full re-render.
+     * calendarContainer is the .ev-calendar__panel element.
+     */
+    function loadMonthAvailability(apptIdx, year, month, calendarContainer) {
+        var appt = state.appointments[apptIdx];
+        var serviceId = SERVICES[appt.duration] || 0;
+        if (!serviceId) return;
+
+        var monthKey = apptIdx + ':' + year + '-' + (month + 1);
+        state.monthAvailLoading[monthKey] = true;
+
+        var fd = new FormData();
+        fd.append('action', 'echovisie_get_month_availability');
+        fd.append('nonce', CFG.nonce);
+        fd.append('service_id', serviceId);
+        fd.append('year', year);
+        fd.append('month', month + 1); // PHP expects 1-based month
+        fd.append('duration', appt.duration);
+
+        fetch(CFG.ajaxUrl, { method: 'POST', body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (resp) {
+                state.monthAvailLoading[monthKey] = false;
+                if (!resp.success) return;
+
+                var days = resp.data.days || {};
+                state.monthAvail[monthKey] = days;
+
+                // Apply to existing day buttons in the calendar container
+                var dayBtns = calendarContainer.querySelectorAll('.ev-calendar__day[data-date]');
+                dayBtns.forEach(function (btn) {
+                    var dateStr = btn.getAttribute('data-date');
+                    var info = days[dateStr];
+                    if (!info || btn.disabled) return;
+                    if (!info.available) {
+                        btn.classList.add('ev-calendar__day--unavailable');
+                        btn.disabled = true;
+                    } else if (info.peak_only) {
+                        btn.classList.add('ev-calendar__day--peak-only');
+                    }
+                });
+            })
+            .catch(function () {
+                state.monthAvailLoading[monthKey] = false;
             });
     }
 
@@ -1718,7 +1794,24 @@
                 if (appt.selectedSlot) meta.push(appt.selectedSlot.time + '\u00a0' + appt.selectedSlot.staff_name);
                 html += '<div class="ev-sidebar__appt-meta">' + meta.join(' \u00b7 ') + '</div>';
             }
-            html += '<div class="ev-sidebar__appt-price">' + euro(apptTotal) + '</div>';
+
+            // Price breakdown (only if surcharge or discount applies)
+            if (surcharge > 0 || adjacentDiscount > 0) {
+                html += '<div class="ev-sidebar__price-breakdown">';
+                html += '<div class="ev-sidebar__price-row"><span>Basispakket</span><span>' + euro(base + addonTotal) + '</span></div>';
+                if (surcharge > 0) {
+                    html += '<div class="ev-sidebar__price-row ev-sidebar__price-row--surcharge">' +
+                        '<span>Avond/weekend</span><span>+ ' + euro(surcharge) + '</span></div>';
+                }
+                if (adjacentDiscount > 0) {
+                    html += '<div class="ev-sidebar__price-row ev-sidebar__price-row--discount">' +
+                        '<span>Aansluitkorting</span><span>\u2212\u00a0' + euro(adjacentDiscount) + '</span></div>';
+                }
+                html += '</div>';
+                html += '<div class="ev-sidebar__appt-price">' + euro(apptTotal) + '</div>';
+            } else {
+                html += '<div class="ev-sidebar__appt-price">' + euro(apptTotal) + '</div>';
+            }
             html += '</div>';
         });
 
