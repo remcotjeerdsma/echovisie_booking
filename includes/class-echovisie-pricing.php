@@ -21,26 +21,76 @@ class EchoVisie_Pricing {
     }
 
     /**
-     * Surcharge for evening/weekend.
+     * Surcharge for peak (evening/weekend/special-day) slots.
+     *
+     * Peak is determined by Bookly's staff schedule:
+     *   - Special day entry for that date → peak
+     *   - Time outside the regular weekly schedule hours → peak
+     *   - No schedule data available → no surcharge (daytime assumed)
+     *
+     * @param string $time_str  'H:i'
+     * @param string $date_str  'Y-m-d'
+     * @param int    $staff_id  Bookly staff ID (0 = unknown → no surcharge)
      */
-    public static function surcharge( $time_str, $date_str ) {
-        $s = self::settings();
-        $amount   = floatval( $s['surcharge_amount'] ?? 10 );
-        $end_hour = intval( $s['daytime_end_hour'] ?? 17 );
-        $weekend  = intval( $s['weekend_surcharge'] ?? 1 );
+    public static function surcharge( $time_str, $date_str, $staff_id = 0 ) {
+        if ( ! $staff_id ) {
+            return 0;
+        }
 
-        $tz   = wp_timezone();
-        $dt   = new DateTime( $date_str . ' ' . $time_str, $tz );
-        $hour = intval( $dt->format( 'G' ) );
-        $dow  = intval( $dt->format( 'N' ) ); // 1=Mon, 7=Sun
+        $s      = self::settings();
+        $amount = floatval( $s['surcharge_amount'] ?? 10 );
 
-        if ( $hour >= $end_hour ) {
+        if ( self::is_peak( $time_str, $date_str, $staff_id ) ) {
             return $amount;
         }
-        if ( $weekend && ( $dow === 6 || $dow === 7 ) ) {
-            return $amount;
-        }
+
         return 0;
+    }
+
+    /**
+     * Returns true when the slot is outside the staff's regular Bookly schedule
+     * or falls on a special day.
+     */
+    public static function is_peak( $time_str, $date_str, $staff_id ) {
+        global $wpdb;
+
+        // Bookly day_index: 1=Sun … 7=Sat; PHP N: 1=Mon … 7=Sun
+        $tz         = wp_timezone();
+        $dt         = new DateTime( $date_str, $tz );
+        $dow        = intval( $dt->format( 'N' ) );
+        $bookly_day = $dow % 7 + 1;
+
+        // Special day check (Bookly Pro addon – table may not exist).
+        $wpdb->suppress_errors( true );
+        $has_special = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}bookly_staff_special_days
+              WHERE staff_id = %d AND `date` = %s",
+            $staff_id, $date_str
+        ) );
+        $wpdb->suppress_errors( false );
+
+        if ( (int) $has_special > 0 ) {
+            return true; // special day → peak
+        }
+
+        // Regular schedule check.
+        $schedule = $wpdb->get_row( $wpdb->prepare(
+            "SELECT start_time, end_time
+               FROM {$wpdb->prefix}bookly_staff_schedule_items
+              WHERE staff_id = %d AND day_index = %d AND start_time IS NOT NULL
+              LIMIT 1",
+            $staff_id, $bookly_day
+        ) );
+
+        if ( ! $schedule ) {
+            return false; // no schedule data → assume daytime
+        }
+
+        $t = substr( $time_str, 0, 5 );
+        $s = substr( $schedule->start_time, 0, 5 );
+        $e = substr( $schedule->end_time,   0, 5 );
+
+        return ( $t < $s || $t >= $e );
     }
 
     /**
@@ -121,8 +171,9 @@ class EchoVisie_Pricing {
             $time     = $appt['time'] ?? '12:00';
             $date     = $appt['date'] ?? date( 'Y-m-d' );
 
+            $staff_id  = intval( $appt['staff_id'] ?? 0 );
             $base      = self::base_price( $duration );
-            $surcharge = self::surcharge( $time, $date );
+            $surcharge = self::surcharge( $time, $date, $staff_id );
             $addon     = self::addon_total( $duration, $addons );
 
             $subtotal += $base + $surcharge + $addon;

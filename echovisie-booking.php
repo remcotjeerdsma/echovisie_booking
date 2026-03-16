@@ -66,10 +66,6 @@ function echovisie_default_settings() {
         // Coupons
         'coupon_2pack' => '', 'coupon_3pack' => '',
 
-        // Daytime / peak definition
-        'daytime_end_hour' => 17,
-        'weekend_surcharge' => 1, // 1 = weekend gets surcharge
-
         // Mollie payment
         'mollie_enabled'  => 0,
         'mollie_api_key'  => '',
@@ -190,8 +186,6 @@ function echovisie_enqueue_assets() {
             'priceRecording'   => floatval( $s['price_recording'] ?? 30 ),
             'priceExtraA4'     => floatval( $s['price_extra_a4'] ?? 4 ),
             'priceExtra10x15'  => floatval( $s['price_extra_10x15'] ?? 2 ),
-            'daytimeEndHour'   => intval( $s['daytime_end_hour'] ?? 17 ),
-            'weekendSurcharge' => intval( $s['weekend_surcharge'] ?? 1 ),
         ),
         'contentRules' => $content_rules,
         'staff'        => $staff,

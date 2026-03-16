@@ -93,10 +93,7 @@ class EchoVisie_Ajax {
 
         $tz  = wp_timezone();
         $dt  = new DateTime( $date, $tz );
-        $dow = intval( $dt->format( 'N' ) ); // 1=Mon … 7=Sun
-
-        $daytime_end = intval( $s['daytime_end_hour'] ?? 17 );
-        $weekend_on  = intval( $s['weekend_surcharge'] ?? 1 );
+        $dow = intval( $dt->format( 'N' ) ); // 1=Mon … 7=Sun (PHP)
 
         // Build staff name map.
         $staff_names = array();
@@ -143,8 +140,13 @@ class EchoVisie_Ajax {
         $finder->setSelectedDate( $date );
         $finder->prepare()->load();
 
-        $result     = array();
-        $all_slots  = $finder->getSlots();
+        $result    = array();
+        $all_slots = $finder->getSlots();
+
+        // Load Bookly schedules once for all staff on this date.
+        // Bookly day_index: 1=Sun, 2=Mon, …, 7=Sat  (PHP N: 1=Mon … 7=Sun)
+        $bookly_day_index = $dow % 7 + 1;
+        $peak_map         = $this->load_bookly_peak_map( $date, $staff_ids, $bookly_day_index );
 
         if ( isset( $all_slots[ $date ] ) ) {
             /** @var \Bookly\Lib\Slots\Range[] $day_slots */
@@ -155,8 +157,7 @@ class EchoVisie_Ajax {
 
                 $staff_id = $slot->staffId();
                 $time_str = $slot->start()->toClientTz()->format( 'H:i' );
-                $hour     = (int) substr( $time_str, 0, 2 );
-                $is_peak  = ( $hour >= $daytime_end ) || ( $weekend_on && ( $dow === 6 || $dow === 7 ) );
+                $is_peak  = $this->is_peak_slot( $time_str, $staff_id, $peak_map );
 
                 $result[] = array(
                     'time'        => $time_str,
@@ -204,6 +205,100 @@ class EchoVisie_Ajax {
         }
 
         return $result;
+    }
+
+    /**
+     * Load Bookly schedule info for a set of staff IDs on a specific date.
+     *
+     * Returns an array keyed by staff_id with:
+     *   'special_day' => bool   – date has a special-day entry for this staff
+     *   'start'       => string – regular schedule start 'H:i:s' (or null)
+     *   'end'         => string – regular schedule end   'H:i:s' (or null)
+     *
+     * A slot is peak when:
+     *   1. The date is a special day for that staff member, OR
+     *   2. The time falls outside the staff's regular scheduled hours for that weekday.
+     */
+    private function load_bookly_peak_map( $date, $staff_ids, $bookly_day_index ) {
+        global $wpdb;
+
+        $map = array();
+        foreach ( $staff_ids as $sid ) {
+            $map[ $sid ] = array( 'special_day' => false, 'start' => null, 'end' => null );
+        }
+
+        if ( empty( $staff_ids ) ) {
+            return $map;
+        }
+
+        $ids_ph = implode( ',', array_map( 'intval', $staff_ids ) );
+
+        // Regular weekly schedule.
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT staff_id, start_time, end_time
+               FROM {$wpdb->prefix}bookly_staff_schedule_items
+              WHERE staff_id IN ({$ids_ph})
+                AND day_index = %d
+                AND start_time IS NOT NULL",
+            $bookly_day_index
+        ) );
+
+        if ( $rows ) {
+            foreach ( $rows as $row ) {
+                $map[ (int) $row->staff_id ]['start'] = $row->start_time;
+                $map[ (int) $row->staff_id ]['end']   = $row->end_time;
+            }
+        }
+
+        // Special days (Bookly Pro addon – table may not exist; suppress errors).
+        $wpdb->suppress_errors( true );
+        $special_rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT staff_id
+               FROM {$wpdb->prefix}bookly_staff_special_days
+              WHERE staff_id IN ({$ids_ph})
+                AND `date` = %s",
+            $date
+        ) );
+        $wpdb->suppress_errors( false );
+
+        if ( $special_rows ) {
+            foreach ( $special_rows as $row ) {
+                $map[ (int) $row->staff_id ]['special_day'] = true;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Determine whether a slot time is peak for the given staff member.
+     *
+     * Peak = special day, OR outside the staff's regular scheduled hours.
+     * If no schedule information is available, the slot is treated as daytime.
+     */
+    private function is_peak_slot( $time_str, $staff_id, $peak_map ) {
+        if ( ! isset( $peak_map[ $staff_id ] ) ) {
+            return false;
+        }
+
+        $info = $peak_map[ $staff_id ];
+
+        // Special day → always peak.
+        if ( $info['special_day'] ) {
+            return true;
+        }
+
+        // No regular schedule on record → treat as daytime.
+        if ( $info['start'] === null ) {
+            return false;
+        }
+
+        // Outside regular hours → peak.
+        $t = substr( $time_str, 0, 5 ); // 'H:i'
+        $s = substr( $info['start'], 0, 5 );
+        $e = substr( $info['end'],   0, 5 );
+
+        return ( $t < $s || $t >= $e );
     }
 
     /**

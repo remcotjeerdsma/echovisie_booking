@@ -60,7 +60,7 @@ class EchoVisie_Admin {
     }
 
     private function get_checkbox_keys() {
-        $keys = array( 'weekend_surcharge', 'mollie_enabled' );
+        $keys = array( 'mollie_enabled' );
         foreach ( array( 10, 20, 30, 40, 50 ) as $dur ) {
             $keys[] = "content_{$dur}_usb_free";
             $keys[] = "content_{$dur}_recording_free";
@@ -137,7 +137,6 @@ class EchoVisie_Admin {
         $prijzen_keys = array(
             'base_price', 'price_per_block', 'surcharge_amount', 'price_3d_extra',
             'price_usb', 'price_recording', 'price_extra_a4', 'price_extra_10x15',
-            'daytime_end_hour', 'weekend_surcharge',
         );
 
         $inhoud_keys = array();
@@ -190,19 +189,12 @@ class EchoVisie_Admin {
             $this->number_row( 'Meerprijs opname &lt;40 min (&euro;)', 'price_recording', $s, 0, 100, 0.5 );
             $this->number_row( 'Extra A4 afdruk (&euro;/stuk)', 'price_extra_a4', $s, 0, 50, 0.5 );
             $this->number_row( 'Extra 10&times;15 afdruk (&euro;/stuk)', 'price_extra_10x15', $s, 0, 50, 0.5 );
-            $this->number_row( 'Einde dagtarief (uur)', 'daytime_end_hour', $s, 12, 22, 1 );
             ?>
-            <tr>
-                <th>Weekend-toeslag actief</th>
-                <td>
-                    <label>
-                        <input type="checkbox" name="echovisie_settings[weekend_surcharge]" value="1"
-                            <?php checked( 1, intval( $s['weekend_surcharge'] ?? 1 ) ); ?>>
-                        Toeslag ook op zaterdag en zondag
-                    </label>
-                </td>
-            </tr>
         </table>
+        <p class="description" style="margin-top:8px;">
+            De avond/weekend-toeslag wordt automatisch toegepast op tijdsloten die buiten de reguliere Bookly-werktijden van de medewerker vallen,
+            of op dagen die als <em>speciale dag</em> zijn ingesteld in Bookly.
+        </p>
         <?php
     }
 
