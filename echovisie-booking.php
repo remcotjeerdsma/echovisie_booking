@@ -36,6 +36,7 @@ function echovisie_activate() {
 function echovisie_default_settings() {
     return array(
         // Pricing
+        'base_price'                => 9,
         'price_per_block'           => 15,
         'surcharge_amount'          => 10,
         'price_3d_extra'            => 15,
@@ -50,11 +51,9 @@ function echovisie_default_settings() {
         'content_30_2d' => 20, 'content_30_3d' => 10, 'content_30_2d_video' => 2, 'content_30_4d_video' => 2, 'content_30_a4' => 1, 'content_30_10x15' => 2, 'content_30_usb_free' => 0, 'content_30_recording_free' => 0,
         'content_40_2d' => 20, 'content_40_3d' => 20, 'content_40_2d_video' => 2, 'content_40_4d_video' => 2, 'content_40_a4' => 1, 'content_40_10x15' => 4, 'content_40_usb_free' => 1, 'content_40_recording_free' => 1,
         'content_50_2d' => 20, 'content_50_3d' => 20, 'content_50_2d_video' => 2, 'content_50_4d_video' => 2, 'content_50_a4' => 2, 'content_50_10x15' => 4, 'content_50_usb_free' => 1, 'content_50_recording_free' => 1,
-        'content_60_2d' => 20, 'content_60_3d' => 20, 'content_60_2d_video' => 2, 'content_60_4d_video' => 2, 'content_60_a4' => 2, 'content_60_10x15' => 4, 'content_60_usb_free' => 1, 'content_60_recording_free' => 1,
-
         // Bookly service IDs
         'service_id_10' => '', 'service_id_20' => '', 'service_id_30' => '',
-        'service_id_40' => '', 'service_id_50' => '', 'service_id_60' => '',
+        'service_id_40' => '', 'service_id_50' => '',
 
         // Staff
         'staff_1_name' => 'Medewerker 1', 'staff_1_id' => '',
@@ -143,7 +142,7 @@ function echovisie_enqueue_assets() {
 
     // Build content rules map for JS
     $content_rules = array();
-    foreach ( array( 10, 20, 30, 40, 50, 60 ) as $dur ) {
+    foreach ( array( 10, 20, 30, 40, 50 ) as $dur ) {
         $content_rules[ $dur ] = array(
             'photos_2d'      => intval( $s[ "content_{$dur}_2d" ] ?? 0 ),
             'photos_3d'      => intval( $s[ "content_{$dur}_3d" ] ?? 0 ),
@@ -170,7 +169,7 @@ function echovisie_enqueue_assets() {
 
     // Build service ID map
     $services = array();
-    foreach ( array( 10, 20, 30, 40, 50, 60 ) as $dur ) {
+    foreach ( array( 10, 20, 30, 40, 50 ) as $dur ) {
         $sid = $s[ "service_id_{$dur}" ] ?? '';
         if ( $sid !== '' ) {
             $services[ $dur ] = intval( $sid );
@@ -183,6 +182,7 @@ function echovisie_enqueue_assets() {
         'pageUrl'       => get_permalink(),
         'paymentReturn' => $payment_return,
         'pricing' => array(
+            'basePrice'        => floatval( $s['base_price'] ?? 9 ),
             'pricePerBlock'    => floatval( $s['price_per_block'] ?? 15 ),
             'surchargeAmount'  => floatval( $s['surcharge_amount'] ?? 10 ),
             'price3dExtra'     => floatval( $s['price_3d_extra'] ?? 15 ),

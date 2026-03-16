@@ -61,7 +61,7 @@ class EchoVisie_Admin {
 
     private function get_checkbox_keys() {
         $keys = array( 'weekend_surcharge', 'mollie_enabled' );
-        foreach ( array( 10, 20, 30, 40, 50, 60 ) as $dur ) {
+        foreach ( array( 10, 20, 30, 40, 50 ) as $dur ) {
             $keys[] = "content_{$dur}_usb_free";
             $keys[] = "content_{$dur}_recording_free";
         }
@@ -135,13 +135,13 @@ class EchoVisie_Admin {
      */
     private function render_hidden_fields( $s, $active_tab ) {
         $prijzen_keys = array(
-            'price_per_block', 'surcharge_amount', 'price_3d_extra',
+            'base_price', 'price_per_block', 'surcharge_amount', 'price_3d_extra',
             'price_usb', 'price_recording', 'price_extra_a4', 'price_extra_10x15',
             'daytime_end_hour', 'weekend_surcharge',
         );
 
         $inhoud_keys = array();
-        foreach ( array( 10, 20, 30, 40, 50, 60 ) as $dur ) {
+        foreach ( array( 10, 20, 30, 40, 50 ) as $dur ) {
             foreach ( array( '2d', '3d', '2d_video', '4d_video', 'a4', '10x15', 'usb_free', 'recording_free' ) as $field ) {
                 $inhoud_keys[] = "content_{$dur}_{$field}";
             }
@@ -149,7 +149,7 @@ class EchoVisie_Admin {
 
         $bookly_keys = array(
             'service_id_10', 'service_id_20', 'service_id_30',
-            'service_id_40', 'service_id_50', 'service_id_60',
+            'service_id_40', 'service_id_50',
             'staff_1_name', 'staff_1_id', 'staff_2_name', 'staff_2_id',
             'staff_3_name', 'staff_3_id',
             'cf_pregnancy_week', 'cf_due_date', 'cf_notes',
@@ -182,6 +182,7 @@ class EchoVisie_Admin {
         ?>
         <table class="form-table">
             <?php
+            $this->number_row( 'Basisprijs (&euro;)', 'base_price', $s, 0, 200, 0.5 );
             $this->number_row( 'Prijs per 10 minuten (&euro;)', 'price_per_block', $s, 0, 200, 0.5 );
             $this->number_row( 'Avond/weekend toeslag (&euro;)', 'surcharge_amount', $s, 0, 100, 0.5 );
             $this->number_row( 'Meerprijs 3D beelden &lt;30 min (&euro;)', 'price_3d_extra', $s, 0, 100, 0.5 );
@@ -207,7 +208,7 @@ class EchoVisie_Admin {
 
     /* ── Tab: Inhoud per duur ─────────────────────────── */
     private function render_tab_inhoud( $s ) {
-        $durations = array( 10, 20, 30, 40, 50, 60 );
+        $durations = array( 10, 20, 30, 40, 50 );
         $fields = array(
             '2d'             => 'Min. 2D beelden',
             '3d'             => 'Min. 3D beelden',
@@ -264,7 +265,7 @@ class EchoVisie_Admin {
         <p class="description">Vul hieronder de Bookly Service ID's in voor elke echo-duur.</p>
         <table class="form-table">
             <?php
-            foreach ( array( 10, 20, 30, 40, 50, 60 ) as $dur ) {
+            foreach ( array( 10, 20, 30, 40, 50 ) as $dur ) {
                 $this->text_row( "Service ID {$dur} min", "service_id_{$dur}", $s );
             }
             ?>

@@ -15,8 +15,9 @@ class EchoVisie_Pricing {
      */
     public static function base_price( $duration ) {
         $s = self::settings();
-        $per_block = floatval( $s['price_per_block'] ?? 15 );
-        return $per_block * ( $duration / 10 );
+        $base_price = floatval( $s['base_price'] ?? 9 );
+        $per_block  = floatval( $s['price_per_block'] ?? 15 );
+        return $base_price + $per_block * ( $duration / 10 );
     }
 
     /**

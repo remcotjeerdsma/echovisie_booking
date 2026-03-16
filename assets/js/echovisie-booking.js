@@ -17,7 +17,7 @@
         'juli', 'augustus', 'september', 'oktober', 'november', 'december'
     ];
     var DAYS_NL = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'];
-    var DURATIONS = [10, 20, 30, 40, 50, 60];
+    var DURATIONS = [10, 20, 30, 40, 50];
 
     var MILESTONES = [
         { id: 'gender', name: 'Geslachtsbepaling', weekStart: 15, weekEnd: 20, weekIdeal: 16, duration: 20, desc: 'Ideaal voor geslachtsbepaling' },
@@ -1677,7 +1677,7 @@
     }
 
     function calcBasePrice(duration) {
-        return (PRICING.pricePerBlock || 15) * (duration / 10);
+        return (PRICING.basePrice || 0) + (PRICING.pricePerBlock || 15) * (duration / 10);
     }
 
     function calcAddonTotal(appt) {
