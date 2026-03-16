@@ -48,21 +48,39 @@ class EchoVisie_Pricing {
     }
 
     /**
-     * Returns true when the slot falls on a Bookly special day for that staff member.
-     * The special-days table is provided by a Bookly addon; if absent, returns false.
+     * Returns true when the slot time falls within a configured special-hours
+     * window in bookly_staff_special_hours for that staff member on that weekday.
+     *
+     * Bookly day_index: 1=Sun … 7=Sat (PHP N: 1=Mon … 7=Sun).
+     * The Special Hours addon table may not exist; suppress_errors handles that.
      */
     public static function is_peak( $time_str, $date_str, $staff_id ) {
         global $wpdb;
 
+        $tz         = wp_timezone();
+        $dt         = new DateTime( $date_str, $tz );
+        $bookly_day = intval( $dt->format( 'N' ) ) % 7 + 1;
+        $t          = substr( $time_str, 0, 5 );
+
         $wpdb->suppress_errors( true );
-        $has_special = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$wpdb->prefix}bookly_staff_special_days
-              WHERE staff_id = %d AND `date` = %s",
-            $staff_id, $date_str
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT start_time, end_time
+               FROM {$wpdb->prefix}bookly_staff_special_hours
+              WHERE staff_id = %d
+                AND FIND_IN_SET(%d, days) > 0",
+            $staff_id, $bookly_day
         ) );
         $wpdb->suppress_errors( false );
 
-        return (int) $has_special > 0;
+        foreach ( (array) $rows as $row ) {
+            $s = substr( $row->start_time, 0, 5 );
+            $e = substr( $row->end_time,   0, 5 );
+            if ( $t >= $s && $t < $e ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

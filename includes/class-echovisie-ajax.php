@@ -141,8 +141,11 @@ class EchoVisie_Ajax {
         $result    = array();
         $all_slots = $finder->getSlots();
 
-        // A slot is peak when the date has a special-day entry for that staff member.
-        $peak_map = $this->load_bookly_peak_map( $date, $staff_ids );
+        // Load special-hours windows for this weekday once, then test each slot.
+        // Bookly day_index: 1=Sun … 7=Sat  (PHP N: 1=Mon … 7=Sun)
+        $dt             = new DateTime( $date, $tz );
+        $bookly_day_idx = intval( $dt->format( 'N' ) ) % 7 + 1;
+        $peak_windows   = $this->load_bookly_peak_windows( $staff_ids, $bookly_day_idx );
 
         if ( isset( $all_slots[ $date ] ) ) {
             /** @var \Bookly\Lib\Slots\Range[] $day_slots */
@@ -153,7 +156,7 @@ class EchoVisie_Ajax {
 
                 $staff_id = $slot->staffId();
                 $time_str = $slot->start()->toClientTz()->format( 'H:i' );
-                $is_peak  = isset( $peak_map[ $staff_id ] );
+                $is_peak  = $this->time_in_windows( $time_str, $peak_windows[ $staff_id ] ?? array() );
 
                 $result[] = array(
                     'time'        => $time_str,
@@ -204,38 +207,55 @@ class EchoVisie_Ajax {
     }
 
     /**
-     * Returns a set of staff IDs that have a special-day entry for the given date.
-     * Any slot served on a special day is considered peak (surcharge applies).
-     * The special-days table is provided by a Bookly addon; if absent, no surcharge.
+     * Load special-hours windows from bookly_staff_special_hours for a given
+     * Bookly day_index (1=Sun … 7=Sat).
+     *
+     * Returns: [ staff_id => [ ['start'=>'H:i', 'end'=>'H:i'], … ], … ]
+     *
+     * The Special Hours addon table may not exist; suppress_errors handles that.
      */
-    private function load_bookly_peak_map( $date, $staff_ids ) {
+    private function load_bookly_peak_windows( $staff_ids, $bookly_day_idx ) {
         global $wpdb;
 
-        $peak = array();
+        $windows = array();
 
         if ( empty( $staff_ids ) ) {
-            return $peak;
+            return $windows;
         }
 
         $ids_ph = implode( ',', array_map( 'intval', $staff_ids ) );
 
         $wpdb->suppress_errors( true );
         $rows = $wpdb->get_results( $wpdb->prepare(
-            "SELECT staff_id
-               FROM {$wpdb->prefix}bookly_staff_special_days
+            "SELECT staff_id, start_time, end_time
+               FROM {$wpdb->prefix}bookly_staff_special_hours
               WHERE staff_id IN ({$ids_ph})
-                AND `date` = %s",
-            $date
+                AND FIND_IN_SET(%d, days) > 0",
+            $bookly_day_idx
         ) );
         $wpdb->suppress_errors( false );
 
-        if ( $rows ) {
-            foreach ( $rows as $row ) {
-                $peak[ (int) $row->staff_id ] = true;
-            }
+        foreach ( (array) $rows as $row ) {
+            $sid = (int) $row->staff_id;
+            $windows[ $sid ][] = array(
+                'start' => substr( $row->start_time, 0, 5 ),
+                'end'   => substr( $row->end_time,   0, 5 ),
+            );
         }
 
-        return $peak;
+        return $windows;
+    }
+
+    /**
+     * Returns true when $time_str ('H:i') falls inside any of the given windows.
+     */
+    private function time_in_windows( $time_str, $windows ) {
+        foreach ( $windows as $w ) {
+            if ( $time_str >= $w['start'] && $time_str < $w['end'] ) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
