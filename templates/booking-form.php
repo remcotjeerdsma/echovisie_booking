@@ -10,27 +10,42 @@
     <!-- Step bar -->
     <div class="ev-steps">
         <div class="ev-step ev-step--active" data-step="0">
-            <span class="ev-step__num">1</span>
+            <span class="ev-step__num">
+                <!-- Heart / pregnancy -->
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            </span>
             <span class="ev-step__label">Zwangerschap</span>
         </div>
         <div class="ev-step__line"></div>
         <div class="ev-step" data-step="1">
-            <span class="ev-step__num">2</span>
+            <span class="ev-step__num">
+                <!-- Ultrasound waves -->
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/><path d="M8 8a6 6 0 0 0 0 8M16 8a6 6 0 0 1 0 8M4.5 4.5a11 11 0 0 0 0 15M19.5 4.5a11 11 0 0 1 0 15"/></svg>
+            </span>
             <span class="ev-step__label">Jouw echo</span>
         </div>
         <div class="ev-step__line"></div>
         <div class="ev-step" data-step="2">
-            <span class="ev-step__num">3</span>
+            <span class="ev-step__num">
+                <!-- Calendar -->
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M20 3h-1V1h-2v2H7V1H5v2H4C2.9 3 2 3.9 2 5v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/><path d="M9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg>
+            </span>
             <span class="ev-step__label">Datum &amp; tijd</span>
         </div>
         <div class="ev-step__line"></div>
         <div class="ev-step" data-step="3">
-            <span class="ev-step__num">4</span>
+            <span class="ev-step__num">
+                <!-- Sparkle / extras -->
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-5.91L4 10l5.91-1.74L12 2zM5 20l1 3 1-3 3-1-3-1-1-3-1 3-3 1 3 1zM19 4l.75 2.25L22 7l-2.25.75L19 10l-.75-2.25L16 7l2.25-.75L19 4z"/></svg>
+            </span>
             <span class="ev-step__label">Extra's</span>
         </div>
         <div class="ev-step__line"></div>
         <div class="ev-step" data-step="4">
-            <span class="ev-step__num">5</span>
+            <span class="ev-step__num">
+                <!-- Person / contact -->
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+            </span>
             <span class="ev-step__label">Gegevens</span>
         </div>
     </div>

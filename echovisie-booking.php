@@ -84,7 +84,7 @@ function echovisie_enqueue_assets() {
 
     wp_enqueue_style(
         'echovisie-fonts',
-        'https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap',
+        'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400;1,700&family=Rubik:wght@300;400;500;600;700&display=swap',
         array(),
         null
     );
