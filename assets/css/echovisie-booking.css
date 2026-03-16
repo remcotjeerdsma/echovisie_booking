@@ -577,6 +577,7 @@
     overflow: hidden;
     background: var(--ev-white);
 }
+.ev-suggestion--package { padding-right: 5.5rem; }
 .ev-suggestion::before {
     content: '';
     position: absolute;
@@ -622,13 +623,41 @@
     color: var(--ev-primary-dark);
 }
 
+/* Discount stamp — top-right corner */
+.ev-suggestion__stamp {
+    position: absolute;
+    top: 1rem; right: 1rem;
+    width: 62px; height: 62px;
+    border-radius: 50%;
+    background: var(--ev-success);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.35rem;
+    line-height: 1;
+    box-shadow: 0 3px 12px rgba(91,155,107,.45);
+    pointer-events: none;
+    letter-spacing: -.5px;
+}
+.ev-suggestion__stamp span {
+    font-size: .55rem;
+    font-weight: 600;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    opacity: .9;
+    margin-top: .1rem;
+}
+
 /* Per-appointment mini-cards */
 .ev-suggestion__appts { display: flex; flex-direction: column; gap: .35rem; margin-top: .75rem; }
 .ev-suggestion__appt-card {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: .45rem .85rem;
+    align-items: flex-start;
+    padding: .55rem .85rem;
     background: rgba(255,255,255,.7);
     border: 1px solid var(--ev-border);
     border-radius: 8px;
@@ -636,9 +665,32 @@
     gap: .5rem;
 }
 .ev-suggestion--selected .ev-suggestion__appt-card { background: rgba(255,255,255,.9); border-color: rgba(226,130,37,.22); }
-.ev-suggestion__appt-card__name { font-weight: 600; color: var(--ev-text); flex: 1; }
+.ev-suggestion__appt-card__left { flex: 1; display: flex; flex-direction: column; gap: .25rem; }
+.ev-suggestion__appt-card__right { display: flex; flex-direction: column; align-items: flex-end; gap: .25rem; flex-shrink: 0; }
+.ev-suggestion__appt-card__name { font-weight: 600; color: var(--ev-text); }
 .ev-suggestion__appt-card__week { font-size: .74rem; color: var(--ev-text-muted); font-weight: 400; }
 .ev-suggestion__appt-card__price { font-weight: 700; color: var(--ev-primary-dark); font-size: .82rem; white-space: nowrap; }
+.ev-suggestion__appt-card__dur {
+    display: inline-block;
+    padding: .08rem .45rem;
+    background: var(--ev-bg);
+    border: 1px solid var(--ev-border);
+    border-radius: 50px;
+    font-size: .68rem;
+    font-weight: 600;
+    color: var(--ev-text-muted);
+    white-space: nowrap;
+}
+.ev-suggestion__appt-card__tags { display: flex; flex-wrap: wrap; gap: .2rem; }
+.ev-suggestion__appt-tag {
+    display: inline-block;
+    padding: .07rem .45rem;
+    background: var(--ev-primary-light);
+    border-radius: 50px;
+    font-size: .67rem;
+    font-weight: 600;
+    color: var(--ev-primary-dark);
+}
 
 /* Badges */
 .ev-badge {

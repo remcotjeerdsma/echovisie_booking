@@ -430,8 +430,14 @@
 
         suggestions.forEach(function (sug, idx) {
             var card = document.createElement('div');
-            card.className = 'ev-suggestion';
+            card.className = 'ev-suggestion' + (sug.discountPct > 0 ? ' ev-suggestion--package' : '');
             card.setAttribute('data-suggestion-idx', idx);
+
+            // Discount stamp for packages
+            var stamp = '';
+            if (sug.discountPct > 0) {
+                stamp = '<div class="ev-suggestion__stamp">' + Math.round(sug.discountPct * 100) + '%<span>korting</span></div>';
+            }
 
             var header = '<div class="ev-suggestion__header">';
             header += '<span class="ev-suggestion__title">' + sug.title + '</span>';
@@ -442,22 +448,31 @@
             header += '<span class="ev-suggestion__price">' + euro(sug.price) + '</span>';
             header += '</span></div>';
 
-            var desc = '<div class="ev-suggestion__desc">' + sug.desc + '</div>';
+            // For packages the sub-cards already show all info; desc would be duplicate
+            var desc = sug.milestones.length === 1
+                ? '<div class="ev-suggestion__desc">' + sug.desc + '</div>'
+                : '';
 
-            var items = '<div class="ev-suggestion__items">';
-            sug.tags.forEach(function (tag) {
-                items += '<span class="ev-suggestion__item">' + tag + '</span>';
-            });
-            items += '</div>';
+            // For single echo: show content tags; for packages: no duplicate tag strip
+            var items = '';
+            if (sug.milestones.length === 1 && sug.tags.length > 0) {
+                items = '<div class="ev-suggestion__items">';
+                sug.tags.forEach(function (tag) {
+                    items += '<span class="ev-suggestion__item">' + tag + '</span>';
+                });
+                items += '</div>';
+            }
 
-            card.innerHTML = header + desc + items;
+            card.innerHTML = stamp + header + desc + items;
 
-            // For packages: show each appointment as a mini-card
+            // For packages: show each appointment as a mini-card with duration + content
             if (sug.milestones && sug.milestones.length > 1) {
                 var apptsDiv = document.createElement('div');
                 apptsDiv.className = 'ev-suggestion__appts';
                 sug.milestones.forEach(function (m, i) {
                     var dur = sug.durations[i] || sug.durations[0];
+                    var rules = getContentRules(dur);
+                    var contentTags = buildContentTags(rules);
                     var apptCard = document.createElement('div');
                     apptCard.className = 'ev-suggestion__appt-card';
 
@@ -465,12 +480,37 @@
                     nameEl.className = 'ev-suggestion__appt-card__name';
                     nameEl.innerHTML = m.name + ' <span class="ev-suggestion__appt-card__week">week\u00a0' + m.weekStart + '\u2013' + m.weekEnd + '</span>';
 
+                    // Duration pill
+                    var durEl = document.createElement('span');
+                    durEl.className = 'ev-suggestion__appt-card__dur';
+                    durEl.textContent = dur + ' min';
+
+                    // Content tags row
+                    var tagsEl = document.createElement('div');
+                    tagsEl.className = 'ev-suggestion__appt-card__tags';
+                    contentTags.forEach(function (t) {
+                        var chip = document.createElement('span');
+                        chip.className = 'ev-suggestion__appt-tag';
+                        chip.textContent = t;
+                        tagsEl.appendChild(chip);
+                    });
+
                     var priceEl = document.createElement('div');
                     priceEl.className = 'ev-suggestion__appt-card__price';
                     priceEl.textContent = euro(calcBasePrice(dur));
 
-                    apptCard.appendChild(nameEl);
-                    apptCard.appendChild(priceEl);
+                    var leftEl = document.createElement('div');
+                    leftEl.className = 'ev-suggestion__appt-card__left';
+                    leftEl.appendChild(nameEl);
+                    leftEl.appendChild(tagsEl);
+
+                    var rightEl = document.createElement('div');
+                    rightEl.className = 'ev-suggestion__appt-card__right';
+                    rightEl.appendChild(durEl);
+                    rightEl.appendChild(priceEl);
+
+                    apptCard.appendChild(leftEl);
+                    apptCard.appendChild(rightEl);
                     apptsDiv.appendChild(apptCard);
                 });
                 card.appendChild(apptsDiv);
@@ -559,10 +599,6 @@
 
         var discount = qty === 3 ? 0.20 : (qty === 2 ? 0.10 : 0);
         var discountedPrice = Math.round(totalPrice * (1 - discount) * 100) / 100;
-
-        allTags.push(qty + " echo's");
-        allTags.push(Math.round(discount * 100) + '% korting');
-        milestones.forEach(function (m) { allTags.push(m.name); });
 
         return {
             title: title,
@@ -1795,7 +1831,6 @@
         if (rules.videos_4d > 0) tags.push(rules.videos_4d + 'x 4D video');
         if (rules.usb_free) tags.push('USB-stick');
         if (rules.recording_free) tags.push('Opname');
-        tags.push('Geslachtsbepaling');
         return tags;
     }
 
