@@ -91,6 +91,9 @@
                             <div class="ev-timeline__marker ev-timeline__marker--pretecho" data-week="28" title="3D/4D Pretecho (week 22-29)"></div>
                             <div class="ev-timeline__marker ev-timeline__marker--portrait" data-week="34" title="Portretecho (week 34)"></div>
                             <div class="ev-timeline__thumb" id="ev-timeline-thumb" style="display:none;"></div>
+                            <div class="ev-timeline__week-label" id="ev-timeline-week-label" style="display:none;" aria-hidden="true">
+                                <span class="ev-timeline__week-label__text"></span>
+                            </div>
                         </div>
                         <div class="ev-timeline__labels">
                             <span>0 wk</span>
@@ -99,7 +102,6 @@
                             <span>30 wk</span>
                             <span>40 wk</span>
                         </div>
-                        <div class="ev-timeline__hint">Sleep de balk om je zwangerschapsweek in te stellen</div>
                     </div>
                 </div>
 
@@ -132,7 +134,7 @@
                         <div class="ev-package-options">
                             <button type="button" class="ev-pkg-btn ev-pkg-btn--active" data-qty="1">1 echo</button>
                             <button type="button" class="ev-pkg-btn" data-qty="2">2 echo's <span class="ev-badge">10% korting</span></button>
-                            <button type="button" class="ev-pkg-btn" data-qty="3">3 echo's <span class="ev-badge ev-badge--hot">20% korting</span></button>
+                            <button type="button" class="ev-pkg-btn" data-qty="3">3 echo's <span class="ev-badge ev-badge--green">20% korting</span></button>
                         </div>
                     </div>
                 </div>

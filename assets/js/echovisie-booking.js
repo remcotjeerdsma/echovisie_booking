@@ -25,6 +25,19 @@
         { id: 'portrait', name: 'Portretecho', weekStart: 32, weekEnd: 36, weekIdeal: 34, duration: 30, desc: 'Gedetailleerde portretbeelden' }
     ];
 
+    /* ── Icons (SVG strings reused in content grid and sidebar) ── */
+    var IC = {
+        photo2d: '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M20 5h-3.17L15 3H9L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-8 13c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg>',
+        photo3d: '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M11.99 2L2 7l10 5 10-5-10.01-5zM2 17l10 5 10-5-3.55-1.77-6.45 3.22-6.45-3.22L2 17zm0-5l10 5 10-5-3.55-1.77-6.45 3.22-6.45-3.22L2 12z"/></svg>',
+        video:   '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>',
+        film:    '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>',
+        print:   '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>',
+        photo:   '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>',
+        usb:     '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M15 7v4h1v2h-3V5h2l-3-4-3 4h2v8H8v-2.07c.7-.37 1.2-1.08 1.2-1.93C9.2 7.75 8.45 7 7.5 7S5.8 7.75 5.8 8.93c0 .85.5 1.56 1.2 1.93V13c0 1.1.9 2 2 2h3v3.05c-.71.37-1.2 1.1-1.2 1.95 0 1.22.98 2.2 2.2 2.2s2.2-.98 2.2-2.2c0-.85-.49-1.58-1.2-1.95V15h3c1.1 0 2-.9 2-2v-2h1V7h-4z"/></svg>',
+        mic:     '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>',
+        heart:   '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
+    };
+
     /* ── State ─────────────────────────────────────────── */
     var state = {
         currentStep: 0,
@@ -326,8 +339,9 @@
         var info = document.getElementById('ev-preg-info');
         if (!info) return;
 
-        var weekBadge = info.querySelector('.ev-preg-badge__week');
-        if (weekBadge) weekBadge.textContent = state.pregnancyWeek !== null ? state.pregnancyWeek : '—';
+        // Static badge visible only when no week selected yet
+        var badge = info.querySelector('.ev-preg-badge');
+        if (badge) badge.style.display = state.pregnancyWeek !== null ? 'none' : '';
 
         if (state.pregnancyWeek !== null) {
             var pct = Math.min(100, (state.pregnancyWeek / 42) * 100);
@@ -343,6 +357,23 @@
 
             var bar = document.getElementById('ev-timeline-bar');
             if (bar) bar.setAttribute('aria-valuenow', state.pregnancyWeek);
+
+            // Floating week label – clamped to stay within bar bounds
+            var label = document.getElementById('ev-timeline-week-label');
+            if (label && bar) {
+                var labelText = label.querySelector('.ev-timeline__week-label__text');
+                if (labelText) labelText.textContent = state.pregnancyWeek + ' weken';
+                label.style.display = '';
+                var barW  = bar.getBoundingClientRect().width;
+                var labelW = label.offsetWidth || 60;
+                if (barW > 0) {
+                    var thumbPx   = pct / 100 * barW;
+                    var clampedPx = Math.max(labelW / 2, Math.min(barW - labelW / 2, thumbPx));
+                    label.style.left = (clampedPx / barW * 100) + '%';
+                } else {
+                    label.style.left = pct + '%';
+                }
+            }
         }
     }
 
@@ -671,22 +702,22 @@
         container.innerHTML = '';
 
         var items = [
-            { label: rules.photos_2d + 'x 2D beelden', included: rules.photos_2d > 0 },
-            { label: rules.photos_3d > 0 ? rules.photos_3d + 'x 3D beelden' : '3D beelden', included: rules.photos_3d > 0 },
-            { label: rules.videos_2d > 0 ? rules.videos_2d + 'x 2D video' : '2D video', included: rules.videos_2d > 0 },
-            { label: rules.videos_4d > 0 ? rules.videos_4d + 'x 4D video' : '4D video', included: rules.videos_4d > 0 },
-            { label: rules.prints_a4 > 0 ? rules.prints_a4 + 'x A4 afdruk' : 'A4 afdruk', included: rules.prints_a4 > 0 },
-            { label: rules.prints_10x15 > 0 ? rules.prints_10x15 + 'x 10\u00d715 afdruk' : '10\u00d715 afdruk', included: rules.prints_10x15 > 0 },
-            { label: 'USB-stick', included: rules.usb_free },
-            { label: 'Volledige opname', included: rules.recording_free },
-            { label: 'Geslachtsbepaling', included: true }
+            { icon: IC.photo2d, label: rules.photos_2d + 'x 2D beelden',   included: rules.photos_2d > 0 },
+            { icon: IC.photo3d, label: rules.photos_3d > 0 ? rules.photos_3d + 'x 3D beelden' : '3D beelden', included: rules.photos_3d > 0 },
+            { icon: IC.video,   label: rules.videos_2d > 0 ? rules.videos_2d + 'x 2D video' : '2D video',    included: rules.videos_2d > 0 },
+            { icon: IC.film,    label: rules.videos_4d > 0 ? rules.videos_4d + 'x 4D video' : '4D video',    included: rules.videos_4d > 0 },
+            { icon: IC.print,   label: rules.prints_a4 > 0 ? rules.prints_a4 + 'x A4 afdruk' : 'A4 afdruk',  included: rules.prints_a4 > 0 },
+            { icon: IC.photo,   label: rules.prints_10x15 > 0 ? rules.prints_10x15 + 'x 10\u00d715 afdruk' : '10\u00d715 afdruk', included: rules.prints_10x15 > 0 },
+            { icon: IC.usb,     label: 'USB-stick',          included: rules.usb_free },
+            { icon: IC.mic,     label: 'Volledige opname',   included: rules.recording_free },
+            { icon: IC.heart,   label: 'Geslachtsbepaling',  included: true }
         ];
 
         items.forEach(function (item) {
             var el = document.createElement('div');
             el.className = 'ev-content-item ' + (item.included ? 'ev-content-item--included' : 'ev-content-item--not-included');
-            el.innerHTML = '<span class="ev-content-item__icon">' + (item.included ? '\u2713' : '\u2013') + '</span>' +
-                '<span>' + item.label + '</span>';
+            el.innerHTML = '<span class="ev-content-item__icon">' + item.icon + '</span>' +
+                '<span class="ev-content-item__label">' + item.label + '</span>';
             container.appendChild(el);
         });
     }
@@ -1089,15 +1120,14 @@
 
         container.appendChild(grid);
 
-        // Legend explaining the orange optimal-range days
+        // Banner above the grid: optimal range for this milestone
         if (optStart && optEnd && appt.milestone) {
             var optLegend = document.createElement('div');
             optLegend.className = 'ev-calendar__optimal-legend';
             optLegend.innerHTML =
-                '\uD83D\uDC4D <span class="ev-calendar__optimal-swatch"></span>' +
-                'Aanbevolen periode voor <strong>' + appt.milestone.name + '</strong>' +
-                ' (week\u00a0' + appt.milestone.weekStart + '\u2013' + appt.milestone.weekEnd + ')';
-            container.appendChild(optLegend);
+                '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
+                '<span>Aanbevolen voor <strong>' + appt.milestone.name + '</strong>: week\u00a0' + appt.milestone.weekStart + '\u2013' + appt.milestone.weekEnd + '</span>';
+            container.insertBefore(optLegend, grid);
         }
     }
 
@@ -1633,22 +1663,25 @@
                 (state.packageQty > 1 ? 'Echo ' + (idx + 1) : 'Jouw echo') +
                 ' \u2013 ' + appt.duration + ' min</div>';
 
-            var details = [];
-            if (rules.photos_2d > 0) details.push(rules.photos_2d + 'x 2D');
-            if (rules.photos_3d > 0 || appt.addons.add_3d) details.push((rules.photos_3d || '?') + 'x 3D');
-            if (rules.videos_4d > 0) details.push(rules.videos_4d + 'x 4D video');
-            if (!appt.genderOptOut) details.push('Geslachtsbepaling');
-            if (rules.usb_free || appt.addons.add_usb) details.push('USB-stick');
-            if (rules.recording_free || appt.addons.add_recording) details.push('Opname');
+            var tags = [];
+            if (rules.photos_2d > 0)                      tags.push(IC.photo2d + ' ' + rules.photos_2d + 'x&nbsp;2D');
+            if (rules.photos_3d > 0 || appt.addons.add_3d) tags.push(IC.photo3d + ' ' + (rules.photos_3d || '') + 'x&nbsp;3D');
+            if (rules.videos_4d > 0)                       tags.push(IC.film    + ' ' + rules.videos_4d + 'x&nbsp;4D');
+            if (!appt.genderOptOut)                        tags.push(IC.heart   + ' Geslacht');
+            if (rules.usb_free || appt.addons.add_usb)    tags.push(IC.usb     + ' USB');
+            if (rules.recording_free || appt.addons.add_recording) tags.push(IC.mic + ' Opname');
 
-            if (appt.date) {
-                details.push(formatDateNL(appt.date));
-            }
-            if (appt.selectedSlot) {
-                details.push(appt.selectedSlot.time + ' - ' + appt.selectedSlot.staff_name);
-            }
+            var tagsHtml = tags.map(function (t) {
+                return '<span class="ev-sidebar__tag">' + t + '</span>';
+            }).join('');
+            html += '<div class="ev-sidebar__appt-tags">' + tagsHtml + '</div>';
 
-            html += '<div class="ev-sidebar__appt-detail">' + details.join(' \u2022 ') + '</div>';
+            if (appt.date || appt.selectedSlot) {
+                var meta = [];
+                if (appt.date) meta.push(formatDateNL(appt.date));
+                if (appt.selectedSlot) meta.push(appt.selectedSlot.time + '\u00a0' + appt.selectedSlot.staff_name);
+                html += '<div class="ev-sidebar__appt-meta">' + meta.join(' \u00b7 ') + '</div>';
+            }
             html += '<div class="ev-sidebar__appt-price">' + euro(apptTotal) + '</div>';
             html += '</div>';
         });
@@ -1680,7 +1713,7 @@
         if (discountPct > 0) {
             var discountRow = document.createElement('div');
             discountRow.className = 'ev-sidebar__discount';
-            discountRow.innerHTML = '<span>Pakketkorting (' + Math.round(discountPct * 100) + '%)</span><span>- ' + euro(discountAmt) + '</span>';
+            discountRow.innerHTML = '<span>Pakketkorting <span class="ev-discount-badge">' + Math.round(discountPct * 100) + '%</span></span><span>\u2212\u00a0' + euro(discountAmt) + '</span>';
             if (totalEl) totalEl.parentNode.insertBefore(discountRow, totalEl);
         }
 
