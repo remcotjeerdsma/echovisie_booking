@@ -203,14 +203,18 @@
             });
         }
 
-        // Draggable week slider
-        var weekSlider = document.getElementById('ev-week-slider');
-        if (weekSlider) {
-            weekSlider.addEventListener('input', function () {
-                var week = parseInt(this.value, 10);
+        // Timeline bar drag — replaces the detached range slider
+        var timelineBar = document.getElementById('ev-timeline-bar');
+        if (timelineBar) {
+            var _dragging = false;
+
+            function applyWeekFromX(clientX) {
+                var rect = timelineBar.getBoundingClientRect();
+                var pct  = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+                var week = Math.round(pct * 42);
+
                 state.pregnancyWeek = week;
 
-                // Derive dates from the week so milestone suggestions work
                 var now = new Date();
                 var lmp = new Date(now.getTime());
                 lmp.setDate(lmp.getDate() - week * 7);
@@ -219,11 +223,34 @@
                 due.setDate(due.getDate() + 280);
                 state.dueDate = due;
 
-                // Enable Next button
                 var nextBtn = document.getElementById('ev-next-0');
                 if (nextBtn) nextBtn.disabled = false;
 
                 updatePregnancyUI();
+            }
+
+            timelineBar.addEventListener('pointerdown', function (e) {
+                _dragging = true;
+                timelineBar.setPointerCapture(e.pointerId);
+                applyWeekFromX(e.clientX);
+                e.preventDefault();
+            });
+            timelineBar.addEventListener('pointermove', function (e) {
+                if (!_dragging) return;
+                applyWeekFromX(e.clientX);
+            });
+            timelineBar.addEventListener('pointerup',     function () { _dragging = false; });
+            timelineBar.addEventListener('pointercancel', function () { _dragging = false; });
+
+            // Keyboard support: arrow keys nudge the week
+            timelineBar.addEventListener('keydown', function (e) {
+                if (state.pregnancyWeek === null) return;
+                var delta = (e.key === 'ArrowRight' || e.key === 'ArrowUp') ? 1
+                          : (e.key === 'ArrowLeft'  || e.key === 'ArrowDown') ? -1 : 0;
+                if (!delta) return;
+                e.preventDefault();
+                var week = Math.max(0, Math.min(42, state.pregnancyWeek + delta));
+                applyWeekFromX(timelineBar.getBoundingClientRect().left + (week / 42) * timelineBar.offsetWidth);
             });
         }
 
@@ -303,14 +330,19 @@
         if (weekBadge) weekBadge.textContent = state.pregnancyWeek !== null ? state.pregnancyWeek : '—';
 
         if (state.pregnancyWeek !== null) {
-            // Progress bar (40 weeks total)
-            var pct = Math.min(100, (state.pregnancyWeek / 40) * 100);
+            var pct = Math.min(100, (state.pregnancyWeek / 42) * 100);
+
             var progress = info.querySelector('.ev-timeline__progress');
             if (progress) progress.style.width = pct + '%';
 
-            // Sync slider
-            var slider = document.getElementById('ev-week-slider');
-            if (slider) slider.value = state.pregnancyWeek;
+            var thumb = document.getElementById('ev-timeline-thumb');
+            if (thumb) {
+                thumb.style.left    = pct + '%';
+                thumb.style.display = '';
+            }
+
+            var bar = document.getElementById('ev-timeline-bar');
+            if (bar) bar.setAttribute('aria-valuenow', state.pregnancyWeek);
         }
     }
 

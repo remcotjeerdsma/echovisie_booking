@@ -289,10 +289,18 @@
 }
 .ev-timeline__bar {
     position: relative;
-    height: 8px;
+    height: 14px;
     background: var(--ev-border);
-    border-radius: 4px;
+    border-radius: 7px;
     overflow: visible;
+    cursor: ew-resize;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    outline: none;
+}
+.ev-timeline__bar:focus-visible {
+    box-shadow: 0 0 0 3px rgba(247,148,29,.35);
 }
 .ev-timeline__progress {
     position: absolute;
@@ -300,8 +308,9 @@
     top: 0;
     height: 100%;
     background: linear-gradient(90deg, var(--ev-primary), var(--ev-primary-dark));
-    border-radius: 4px;
-    transition: width .5s ease;
+    border-radius: 7px;
+    transition: width .15s ease;
+    pointer-events: none;
 }
 .ev-timeline__marker {
     position: absolute;
@@ -315,16 +324,42 @@
     background: var(--ev-primary-light);
     cursor: help;
     z-index: 2;
+    pointer-events: all;
 }
-.ev-timeline__marker--gender { left: 40%; }
-.ev-timeline__marker--pretecho { left: 67.5%; }
-.ev-timeline__marker--portrait { left: 85%; }
+/* Marker positions on a 42-week scale */
+.ev-timeline__marker--gender  { left: 38.1%; } /* week 16 */
+.ev-timeline__marker--pretecho { left: 66.7%; } /* week 28 */
+.ev-timeline__marker--portrait { left: 81%;   } /* week 34 */
+.ev-timeline__thumb {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--ev-white);
+    border: 3px solid var(--ev-primary-dark);
+    box-shadow: 0 1px 8px rgba(0,0,0,.22);
+    z-index: 4;
+    pointer-events: none;
+    transition: box-shadow var(--ev-transition);
+}
+.ev-timeline__bar:active .ev-timeline__thumb,
+.ev-timeline__bar:focus-visible .ev-timeline__thumb {
+    box-shadow: 0 0 0 6px rgba(247,148,29,.25), 0 1px 8px rgba(0,0,0,.22);
+}
 .ev-timeline__labels {
     display: flex;
     justify-content: space-between;
     margin-top: .4rem;
     font-size: .72rem;
     color: var(--ev-text-muted);
+}
+.ev-timeline__hint {
+    margin-top: .35rem;
+    font-size: .72rem;
+    color: var(--ev-text-muted);
+    text-align: center;
 }
 
 /* ── Buttons ──────────────────────────────────────────── */
@@ -1443,56 +1478,6 @@
     white-space: nowrap;
 }
 
-/* ── Draggable pregnancy week slider ──────────────────── */
-.ev-week-slider-wrap {
-    margin-top: .8rem;
-    padding: .65rem .9rem;
-    background: var(--ev-primary-lighter);
-    border-radius: var(--ev-radius-sm);
-    border: 1px dashed var(--ev-primary);
-}
-.ev-week-slider-wrap label {
-    font-size: .78rem;
-    font-weight: 700;
-    color: var(--ev-primary-dark);
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    display: block;
-    margin-bottom: .45rem;
-}
-.ev-week-slider {
-    width: 100%;
-    -webkit-appearance: none;
-    appearance: none;
-    height: 8px;
-    border-radius: 4px;
-    background: var(--ev-border);
-    outline: none;
-    cursor: pointer;
-}
-.ev-week-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: var(--ev-primary);
-    border: 3px solid var(--ev-white);
-    box-shadow: 0 2px 8px rgba(0,0,0,.18);
-    cursor: grab;
-    transition: box-shadow var(--ev-transition);
-}
-.ev-week-slider::-webkit-slider-thumb:hover {
-    box-shadow: 0 2px 12px rgba(247,148,29,.45);
-}
-.ev-week-slider::-moz-range-thumb {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: var(--ev-primary);
-    border: 3px solid var(--ev-white);
-    box-shadow: 0 2px 8px rgba(0,0,0,.18);
-    cursor: grab;
-}
 
 /* ── Voucher / coupon code field ──────────────────────── */
 .ev-voucher-row {

@@ -67,11 +67,15 @@
                         <span class="ev-preg-badge__label">weken zwanger</span>
                     </div>
                     <div class="ev-timeline">
-                        <div class="ev-timeline__bar">
+                        <div class="ev-timeline__bar" id="ev-timeline-bar"
+                             role="slider" aria-label="Zwangerschapsweek"
+                             aria-valuemin="0" aria-valuemax="42" aria-valuenow="0"
+                             tabindex="0">
                             <div class="ev-timeline__progress" style="width:0%"></div>
                             <div class="ev-timeline__marker ev-timeline__marker--gender" data-week="16" title="Geslachtsbepaling (week 15-20)"></div>
                             <div class="ev-timeline__marker ev-timeline__marker--pretecho" data-week="28" title="3D/4D Pretecho (week 22-29)"></div>
                             <div class="ev-timeline__marker ev-timeline__marker--portrait" data-week="34" title="Portretecho (week 34)"></div>
+                            <div class="ev-timeline__thumb" id="ev-timeline-thumb" style="display:none;"></div>
                         </div>
                         <div class="ev-timeline__labels">
                             <span>0 wk</span>
@@ -80,10 +84,7 @@
                             <span>30 wk</span>
                             <span>40 wk</span>
                         </div>
-                    </div>
-                    <div class="ev-week-slider-wrap">
-                        <label for="ev-week-slider">Of sleep de schuifregelaar om je zwangerschapsweek in te stellen</label>
-                        <input type="range" id="ev-week-slider" class="ev-week-slider" min="0" max="42" step="1" value="0">
+                        <div class="ev-timeline__hint">Sleep de balk om je zwangerschapsweek in te stellen</div>
                     </div>
                 </div>
 
