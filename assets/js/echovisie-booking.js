@@ -1104,11 +1104,11 @@
         var today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // Optimal range for milestone highlighting
+        // Optimal range dates (for header text only, not day background)
         var optStart = null, optEnd = null;
-        if (appt.milestone && state.dueDate) {
+        if (appt.milestone && state.pregDate) {
             optStart = getWeekDate(appt.milestone.weekStart);
-            optEnd = getWeekDate(appt.milestone.weekEnd);
+            optEnd   = getWeekDate(appt.milestone.weekEnd);
         }
 
         // Empty cells
@@ -1135,30 +1135,15 @@
             if (dayDate < today) {
                 dayEl.classList.add('ev-calendar__day--disabled');
             } else {
-                // Today
                 if (dayDate.getTime() === today.getTime()) {
                     dayEl.classList.add('ev-calendar__day--today');
                 }
-
-                // Optimal range
-                if (optStart && optEnd && dayDate >= optStart && dayDate <= optEnd) {
-                    dayEl.classList.add('ev-calendar__day--optimal');
-                }
-
-                // Selected
                 if (appt.date && dayDate.toDateString() === appt.date.toDateString()) {
                     dayEl.classList.add('ev-calendar__day--selected');
                 }
-
-                // Apply cached availability info immediately
-                if (avail && avail[dateStr]) {
-                    var info = avail[dateStr];
-                    if (!info.available) {
-                        dayEl.classList.add('ev-calendar__day--unavailable');
-                        dayEl.disabled = true;
-                    } else if (info.peak_only) {
-                        dayEl.classList.add('ev-calendar__day--peak-only');
-                    }
+                // Apply cached availability colours immediately
+                if (avail) {
+                    applyDayAvailClass(dayEl, dateStr, avail);
                 }
 
                 (function (dd) {
@@ -1178,20 +1163,53 @@
 
         container.appendChild(grid);
 
+        // Calendar colour legend (below the grid, before timeslots)
+        var calLegend = document.createElement('div');
+        calLegend.className = 'ev-calendar__day-legend';
+        calLegend.innerHTML =
+            '<span><span class="ev-cdl-dot ev-cdl-dot--cheap"></span>Dagtarief</span>' +
+            '<span><span class="ev-cdl-dot ev-cdl-dot--adjacent"></span>Aansluitkorting</span>' +
+            '<span><span class="ev-cdl-dot ev-cdl-dot--peak"></span>Avond/weekend</span>' +
+            '<span><span class="ev-cdl-dot ev-cdl-dot--unavailable"></span>Niet beschikbaar</span>';
+        container.appendChild(calLegend);
+
+        // Recommended period: shown as text above the grid (below month nav)
+        if (optStart && optEnd && appt.milestone) {
+            var optBanner = document.createElement('div');
+            optBanner.className = 'ev-calendar__optimal-legend';
+            optBanner.innerHTML =
+                '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
+                '<span>Aanbevolen periode voor <strong>' + appt.milestone.name + '</strong>: ' +
+                formatDateShortNL(optStart) + ' t/m ' + formatDateShortNL(optEnd) + '</span>';
+            container.insertBefore(optBanner, grid);
+        }
+
         // Kick off month availability fetch if not yet cached
         if (!avail && !state.monthAvailLoading[monthKey]) {
             loadMonthAvailability(apptIdx, year, month, container);
         }
+    }
 
-        // Banner above the grid: optimal range for this milestone
-        if (optStart && optEnd && appt.milestone) {
-            var optLegend = document.createElement('div');
-            optLegend.className = 'ev-calendar__optimal-legend';
-            optLegend.innerHTML =
-                '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
-                '<span>Aanbevolen voor <strong>' + appt.milestone.name + '</strong>: week\u00a0' + appt.milestone.weekStart + '\u2013' + appt.milestone.weekEnd + '</span>';
-            container.insertBefore(optLegend, grid);
+    /** Apply the correct availability colour class to a day button. */
+    function applyDayAvailClass(btn, dateStr, avail) {
+        var info = avail[dateStr];
+        if (!info) return;
+        if (!info.available) {
+            btn.classList.add('ev-calendar__day--unavailable');
+            btn.disabled = true;
+        } else if (info.has_cheap) {
+            btn.classList.add('ev-calendar__day--cheap');
+        } else if (info.has_adjacent) {
+            btn.classList.add('ev-calendar__day--adjacent');
+        } else if (info.peak_only) {
+            btn.classList.add('ev-calendar__day--peak-only');
         }
+    }
+
+    /** Format date as "3 maart" (day + month name, no year). */
+    function formatDateShortNL(d) {
+        if (!d) return '';
+        return d.getDate() + ' ' + MONTHS_NL[d.getMonth()];
     }
 
     function getIdealDate(milestone) {
@@ -1283,15 +1301,8 @@
                 // Apply to existing day buttons in the calendar container
                 var dayBtns = calendarContainer.querySelectorAll('.ev-calendar__day[data-date]');
                 dayBtns.forEach(function (btn) {
-                    var dateStr = btn.getAttribute('data-date');
-                    var info = days[dateStr];
-                    if (!info || btn.disabled) return;
-                    if (!info.available) {
-                        btn.classList.add('ev-calendar__day--unavailable');
-                        btn.disabled = true;
-                    } else if (info.peak_only) {
-                        btn.classList.add('ev-calendar__day--peak-only');
-                    }
+                    if (btn.disabled) return;
+                    applyDayAvailClass(btn, btn.getAttribute('data-date'), days);
                 });
             })
             .catch(function () {

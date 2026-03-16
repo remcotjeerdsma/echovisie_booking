@@ -103,6 +103,24 @@ class EchoVisie_Ajax {
         $finder->prepare()->load();
         $all_slots = $finder->getSlots();
 
+        // Fetch all existing appointments in this month once for adjacent detection.
+        $existing_by_date = array();
+        if ( class_exists( '\Bookly\Lib\Entities\Appointment' ) ) {
+            $existing_appts = \Bookly\Lib\Entities\Appointment::query()
+                ->whereGte( 'start_date', $date_from . ' 00:00:00' )
+                ->whereLte( 'start_date', $date_to   . ' 23:59:59' )
+                ->whereIn( 'staff_id', $staff_ids )
+                ->fetchArray();
+            foreach ( $existing_appts as $appt ) {
+                $d_key = substr( $appt['start_date'], 0, 10 );
+                $sid   = (int) $appt['staff_id'];
+                $existing_by_date[ $d_key ][ $sid ][] = array(
+                    'start_date' => $appt['start_date'],
+                    'end_date'   => $appt['end_date'],
+                );
+            }
+        }
+
         // Cache peak windows per weekday (lazy-loaded on first day of each weekday).
         $peak_windows_cache = array(); // bookly_day_idx => windows array
 
@@ -112,12 +130,12 @@ class EchoVisie_Ajax {
 
             // Past days are unavailable.
             if ( $date_str < $today ) {
-                $days[ $date_str ] = array( 'available' => false, 'peak_only' => false );
+                $days[ $date_str ] = array( 'available' => false, 'has_cheap' => false, 'has_adjacent' => false, 'peak_only' => false );
                 continue;
             }
 
             if ( empty( $all_slots[ $date_str ] ) ) {
-                $days[ $date_str ] = array( 'available' => false, 'peak_only' => false );
+                $days[ $date_str ] = array( 'available' => false, 'has_cheap' => false, 'has_adjacent' => false, 'peak_only' => false );
                 continue;
             }
 
@@ -129,8 +147,11 @@ class EchoVisie_Ajax {
             }
             $peak_windows = $peak_windows_cache[ $bookly_day_idx ];
 
-            $has_any  = false;
-            $all_peak = true;
+            $day_existing = $existing_by_date[ $date_str ] ?? array();
+
+            $has_any      = false;
+            $has_cheap    = false;
+            $has_adjacent = false;
 
             foreach ( $all_slots[ $date_str ] as $slot ) {
                 if ( ! $slot->notFullyBooked() ) {
@@ -141,13 +162,28 @@ class EchoVisie_Ajax {
                 $time_str = $slot->start()->toClientTz()->format( 'H:i' );
                 $is_peak  = $this->time_in_windows( $time_str, $peak_windows[ $staff_id ] ?? array() );
                 if ( ! $is_peak ) {
-                    $all_peak = false;
+                    $has_cheap = true;
+                }
+
+                // Adjacent check: slot start = existing end, or slot end = existing start
+                $slot_start = $date_str . ' ' . $time_str . ':00';
+                $slot_end_dt = new DateTime( $slot_start, $tz );
+                $slot_end_dt->modify( "+{$duration} minutes" );
+                $slot_end = $slot_end_dt->format( 'Y-m-d H:i:s' );
+
+                foreach ( $day_existing[ $staff_id ] ?? array() as $ex ) {
+                    if ( $ex['start_date'] === $slot_end || $ex['end_date'] === $slot_start ) {
+                        $has_adjacent = true;
+                        break 2;
+                    }
                 }
             }
 
             $days[ $date_str ] = array(
-                'available' => $has_any,
-                'peak_only' => $has_any && $all_peak,
+                'available'    => $has_any,
+                'has_cheap'    => $has_cheap,
+                'has_adjacent' => $has_adjacent,
+                'peak_only'    => $has_any && ! $has_cheap && ! $has_adjacent,
             );
         }
 

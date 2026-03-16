@@ -968,35 +968,57 @@
     box-shadow: 0 3px 10px rgba(226,130,37,.45);
     font-weight: 700;
 }
-.ev-calendar__day--optimal {
-    background: var(--ev-success-light);
-    color: #2e7d32;
-    font-weight: 600;
-}
+/* --optimal: removed; recommended period shown as text in the header bar */
 .ev-calendar__day--disabled { opacity: .2; cursor: not-allowed; pointer-events: none; }
 .ev-calendar__day--empty { visibility: hidden; }
 
-/* Day has no available slots → invisible (takes up grid space but not distracting) */
+/* Availability colour coding (matches timeslot colours) */
 .ev-calendar__day--unavailable {
-    opacity: 0;
-    cursor: default;
+    background: #f0f0f0;
+    color: #bbb;
+    cursor: not-allowed;
     pointer-events: none;
 }
-
-/* Day has slots but all are peak (evening/weekend) → small cost indicator */
+.ev-calendar__day--cheap {
+    background: var(--ev-success-light);
+    color: #2e7d32;
+    border-color: var(--ev-success);
+}
+.ev-calendar__day--cheap:hover { background: var(--ev-success); color: #fff; }
+.ev-calendar__day--adjacent {
+    background: #f5f0ff;
+    color: #5a3e8a;
+    border-color: #a887d8;
+}
+.ev-calendar__day--adjacent:hover { background: #7c5cbf; color: #fff; border-color: #7c5cbf; }
 .ev-calendar__day--peak-only {
-    position: relative;
-}
-.ev-calendar__day--peak-only::after {
-    content: '€';
-    position: absolute;
-    top: 2px; right: 3px;
-    font-size: .5rem;
-    font-weight: 700;
+    background: var(--ev-primary-light);
     color: var(--ev-primary-dark);
-    line-height: 1;
-    pointer-events: none;
+    border-color: var(--ev-primary);
 }
+.ev-calendar__day--peak-only:hover { background: var(--ev-primary); color: #fff; }
+
+/* Calendar day colour legend */
+.ev-calendar__day-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem 1rem;
+    margin-top: .7rem;
+    font-size: .73rem;
+    color: var(--ev-text-muted);
+    align-items: center;
+}
+.ev-cdl-dot {
+    display: inline-block;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    margin-right: .3rem;
+    vertical-align: middle;
+}
+.ev-cdl-dot--cheap      { background: var(--ev-success); }
+.ev-cdl-dot--adjacent   { background: #7c5cbf; }
+.ev-cdl-dot--peak       { background: var(--ev-primary); }
+.ev-cdl-dot--unavailable { background: #ccc; }
 
 /* Optimal period legend — shown ABOVE the calendar grid */
 .ev-calendar__optimal-legend {
