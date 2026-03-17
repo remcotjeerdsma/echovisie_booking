@@ -77,7 +77,7 @@
                 </div>
 
                 <div id="ev-preg-info" class="ev-preg-info">
-                    <div class="ev-preg-badge">
+                    <div class="ev-preg-badge" style="display:none;">
                         <span class="ev-preg-badge__week">—</span>
                         <span class="ev-preg-badge__label">weken zwanger</span>
                     </div>
