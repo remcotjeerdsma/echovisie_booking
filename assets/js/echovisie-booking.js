@@ -698,6 +698,10 @@
         if (sugSection) sugSection.style.display = 'none';
         if (divider) divider.style.display = 'none';
         if (customBtn) customBtn.style.display = 'none';
+        // Sync package qty buttons to current state (e.g. when entering from a multi-echo suggestion)
+        document.querySelectorAll('.ev-pkg-btn').forEach(function (btn) {
+            btn.classList.toggle('ev-pkg-btn--active', parseInt(btn.getAttribute('data-qty'), 10) === state.packageQty);
+        });
         renderAppointmentConfigs();
         updateSidebar();
     }
