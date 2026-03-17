@@ -410,6 +410,24 @@
             updateStep1NextButton();
         });
 
+        var showSugBtn = document.getElementById('ev-show-suggestions-btn');
+        if (showSugBtn) showSugBtn.addEventListener('click', function () {
+            // Restore suggestions section
+            var sugSection = document.getElementById('ev-suggestions-section');
+            var divider = document.getElementById('ev-step1-divider');
+            var builder = document.getElementById('ev-custom-builder');
+            if (sugSection) sugSection.style.display = '';
+            if (divider) divider.style.display = '';
+            if (customBtn) customBtn.style.display = '';
+            if (builder) builder.style.display = 'none';
+            // Clear custom selection so next button disables unless suggestion picked
+            if (state.selectedSuggestion === 'custom') {
+                state.selectedSuggestion = null;
+                updateStep1NextButton();
+            }
+            updateSidebar();
+        });
+
         // Package quantity buttons
         var pkgBtns = document.querySelectorAll('.ev-pkg-btn');
         pkgBtns.forEach(function (btn) {
@@ -444,14 +462,20 @@
         }
 
         suggestions.forEach(function (sug, idx) {
+            // Wrapper allows the stamp to visually overflow the card corner
+            var wrap = document.createElement('div');
+            wrap.className = 'ev-suggestion-wrap';
+
             var card = document.createElement('div');
             card.className = 'ev-suggestion' + (sug.discountPct > 0 ? ' ev-suggestion--package' : '');
             card.setAttribute('data-suggestion-idx', idx);
 
-            // Discount stamp for packages
-            var stamp = '';
+            // Discount stamp placed in wrapper (outside card) so it overflows the corner
             if (sug.discountPct > 0) {
-                stamp = '<div class="ev-suggestion__stamp">' + Math.round(sug.discountPct * 100) + '%<span>korting</span></div>';
+                var stampEl = document.createElement('div');
+                stampEl.className = 'ev-suggestion__stamp';
+                stampEl.innerHTML = Math.round(sug.discountPct * 100) + '%<span>korting</span>';
+                wrap.appendChild(stampEl);
             }
 
             var header = '<div class="ev-suggestion__header">';
@@ -478,7 +502,7 @@
                 items += '</div>';
             }
 
-            card.innerHTML = stamp + header + desc + items;
+            card.innerHTML = header + desc + items;
 
             // For packages: show each appointment as a mini-card with duration + content
             if (sug.milestones && sug.milestones.length > 1) {
@@ -535,7 +559,8 @@
                 selectSuggestion(idx, suggestions);
             });
 
-            container.appendChild(card);
+            wrap.appendChild(card);
+            container.appendChild(wrap);
         });
     }
 
@@ -665,6 +690,13 @@
         var pkgSelector = document.getElementById('ev-package-selector');
         if (builder) builder.style.display = '';
         if (pkgSelector) pkgSelector.style.display = '';
+        // Collapse suggestions, divider and the "stel zelf samen" button
+        var sugSection = document.getElementById('ev-suggestions-section');
+        var divider = document.getElementById('ev-step1-divider');
+        var customBtn = document.getElementById('ev-custom-btn');
+        if (sugSection) sugSection.style.display = 'none';
+        if (divider) divider.style.display = 'none';
+        if (customBtn) customBtn.style.display = 'none';
         renderAppointmentConfigs();
         updateSidebar();
     }

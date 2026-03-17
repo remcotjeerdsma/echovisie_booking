@@ -528,6 +528,7 @@
 .ev-btn--primary:active:not(:disabled) { transform: translateY(0); }
 .ev-btn--ghost { background: transparent; color: var(--ev-text-muted); padding-left: .6rem; }
 .ev-btn--ghost:hover { color: var(--ev-text); }
+.ev-btn--sm { font-size: .8rem; padding: .35rem .8rem; }
 .ev-btn--outline {
     background: var(--ev-white);
     border: 1.5px solid var(--ev-primary);
@@ -564,13 +565,31 @@
 }
 .ev-nav--center { justify-content: center; }
 
+/* ── Suggestion section label ──────────────────────────── */
+.ev-suggestions-section { margin-bottom: 0; }
+.ev-suggestions-label {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--ev-primary);
+    margin-bottom: .55rem;
+}
+.ev-suggestions-label svg { width: .85em; height: .85em; flex-shrink: 0; }
+
 /* ── Suggestion cards ──────────────────────────────────── */
 .ev-suggestions {
     display: flex;
     flex-direction: column;
-    gap: .85rem;
+    gap: 1.4rem;
     margin-bottom: 1.5rem;
+    padding-top: .2rem;
 }
+/* Wrapper allows stamp to overflow the card boundary */
+.ev-suggestion-wrap { position: relative; }
 .ev-suggestion {
     border: 1.5px solid var(--ev-border);
     border-radius: var(--ev-radius);
@@ -581,7 +600,7 @@
     overflow: hidden;
     background: var(--ev-white);
 }
-.ev-suggestion--package { padding-right: 5.5rem; }
+.ev-suggestion--package { padding-right: 1.6rem; }
 .ev-suggestion::before {
     content: '';
     position: absolute;
@@ -627,12 +646,11 @@
     color: var(--ev-primary-dark);
 }
 
-/* Discount stamp — top-right corner */
+/* Discount stamp — overlapping top-right corner with kartelrand */
 .ev-suggestion__stamp {
     position: absolute;
-    top: 1rem; right: 1rem;
-    width: 62px; height: 62px;
-    border-radius: 50%;
+    top: -18px; right: 18px;
+    width: 64px; height: 64px;
     background: var(--ev-success);
     color: #fff;
     display: flex;
@@ -642,9 +660,17 @@
     font-weight: 800;
     font-size: 1.35rem;
     line-height: 1;
-    box-shadow: 0 3px 12px rgba(91,155,107,.45);
     pointer-events: none;
     letter-spacing: -.5px;
+    z-index: 2;
+    /* 12-tooth gear shape (kartelrand) */
+    clip-path: polygon(
+        50% 0%, 61% 9%, 75% 7%, 80% 20%, 93% 25%, 91% 39%,
+        100% 50%, 91% 61%, 93% 75%, 80% 80%, 75% 93%, 61% 91%,
+        50% 100%, 39% 91%, 25% 93%, 20% 80%, 7% 75%, 9% 61%,
+        0% 50%, 9% 39%, 7% 25%, 20% 20%, 25% 7%, 39% 9%
+    );
+    filter: drop-shadow(0 3px 8px rgba(91,155,107,.55));
 }
 .ev-suggestion__stamp span {
     font-size: .55rem;
@@ -731,6 +757,7 @@
 
 /* ── Custom builder ────────────────────────────────────── */
 .ev-custom-builder { animation: ev-slideUp .35s ease; }
+.ev-custom-builder > .ev-btn--ghost { margin-bottom: 1.2rem; }
 .ev-package-selector { margin-bottom: 1.5rem; }
 .ev-package-selector h3 { font-size: 1rem; font-weight: 700; font-style: italic; margin-bottom: .85rem; color: var(--ev-text); }
 .ev-package-options { display: flex; gap: .6rem; }
@@ -1289,8 +1316,8 @@
 
     /* Suggestion cards */
     .ev-suggestion { padding: 1rem 1rem 1rem 1.2rem; }
-    .ev-suggestion--package { padding-right: 4.5rem; }
-    .ev-suggestion__stamp { width: 50px; height: 50px; font-size: 1.1rem; top: .75rem; right: .75rem; }
+    .ev-suggestion--package { padding-right: 1.2rem; }
+    .ev-suggestion__stamp { width: 52px; height: 52px; font-size: 1.1rem; top: -14px; right: 14px; }
     .ev-suggestion__header { flex-direction: column; align-items: flex-start; gap: .2rem; }
     .ev-suggestion__appt-card { flex-wrap: wrap; }
     .ev-suggestion__appt-card__right { flex-direction: row; gap: .5rem; align-items: center; }

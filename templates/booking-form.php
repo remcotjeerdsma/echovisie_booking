@@ -114,19 +114,28 @@
             <!-- STEP 1: Kies je echo -->
             <div class="ev-panel" data-panel="1" style="display:none;">
                 <h2>Kies je echo</h2>
-                <p class="ev-subtitle" id="ev-suggestion-intro"></p>
 
-                <!-- Suggestions (dynamically filled by JS) -->
-                <div id="ev-suggestions" class="ev-suggestions"></div>
+                <!-- Suggestions section (collapses when custom builder opens) -->
+                <div id="ev-suggestions-section" class="ev-suggestions-section">
+                    <div class="ev-suggestions-label">
+                        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                        Onze aanbeveling voor jou
+                    </div>
+                    <p class="ev-subtitle" id="ev-suggestion-intro"></p>
+                    <!-- Suggestions (dynamically filled by JS) -->
+                    <div id="ev-suggestions" class="ev-suggestions"></div>
+                </div>
 
-                <div class="ev-divider">
-                    <span>of</span>
+                <div class="ev-divider" id="ev-step1-divider">
+                    <span>of zelf samenstellen</span>
                 </div>
 
                 <button type="button" class="ev-btn ev-btn--outline" id="ev-custom-btn">Stel zelf samen</button>
 
                 <!-- Custom echo builder (hidden by default) -->
                 <div id="ev-custom-builder" class="ev-custom-builder" style="display:none;">
+                    <button type="button" class="ev-btn ev-btn--ghost ev-btn--sm" id="ev-show-suggestions-btn">&#8592; Bekijk aanbevelingen</button>
+
                     <div id="ev-appointments-config"></div>
 
                     <div id="ev-package-selector" class="ev-package-selector" style="display:none;">
