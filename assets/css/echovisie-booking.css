@@ -600,7 +600,7 @@
     overflow: hidden;
     background: var(--ev-white);
 }
-.ev-suggestion--package { padding-right: 1.6rem; }
+.ev-suggestion--package { padding-right: 3.2rem; }
 .ev-suggestion::before {
     content: '';
     position: absolute;
@@ -649,7 +649,7 @@
 /* Discount stamp — overlapping top-right corner with kartelrand */
 .ev-suggestion__stamp {
     position: absolute;
-    top: -18px; right: 18px;
+    top: -16px; right: -16px;
     width: 64px; height: 64px;
     background: var(--ev-success);
     color: #fff;
@@ -671,6 +671,15 @@
         0% 50%, 9% 39%, 7% 25%, 20% 20%, 25% 7%, 39% 9%
     );
     filter: drop-shadow(0 3px 8px rgba(91,155,107,.55));
+}
+/* Inner content of stamp — tilted for a hand-stamped feel */
+.ev-suggestion__stamp__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transform: rotate(12deg);
+    line-height: 1;
 }
 .ev-suggestion__stamp span {
     font-size: .55rem;
@@ -820,11 +829,21 @@
 .ev-duration-ticks span { font-size: .68rem; color: var(--ev-text-muted); }
 
 /* ── Content grid (included items with icons) ──────────── */
-.ev-content-grid {
+.ev-content-grid { margin-bottom: 1.2rem; }
+.ev-content-group { margin-bottom: .9rem; }
+.ev-content-group:last-child { margin-bottom: 0; }
+.ev-content-group__title {
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--ev-text-muted);
+    margin-bottom: .35rem;
+}
+.ev-content-group__grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: .45rem;
-    margin-bottom: 1.2rem;
+    gap: .4rem;
 }
 .ev-content-item {
     display: flex;
@@ -838,6 +857,7 @@
 }
 .ev-content-item--included  { color: var(--ev-text); }
 .ev-content-item--not-included { color: var(--ev-text-muted); opacity: .4; }
+.ev-content-item--orderable { color: var(--ev-text-muted); opacity: .65; border-style: dashed; }
 .ev-content-item__icon {
     width: 26px; height: 26px;
     border-radius: 50%;
@@ -1316,8 +1336,8 @@
 
     /* Suggestion cards */
     .ev-suggestion { padding: 1rem 1rem 1rem 1.2rem; }
-    .ev-suggestion--package { padding-right: 1.2rem; }
-    .ev-suggestion__stamp { width: 52px; height: 52px; font-size: 1.1rem; top: -14px; right: 14px; }
+    .ev-suggestion--package { padding-right: 2.8rem; }
+    .ev-suggestion__stamp { width: 52px; height: 52px; font-size: 1.1rem; top: -14px; right: -14px; }
     .ev-suggestion__header { flex-direction: column; align-items: flex-start; gap: .2rem; }
     .ev-suggestion__appt-card { flex-wrap: wrap; }
     .ev-suggestion__appt-card__right { flex-direction: row; gap: .5rem; align-items: center; }
@@ -1330,7 +1350,7 @@
     .ev-calendar__day  { font-size: .74rem; min-height: 30px; padding: 0; }
 
     /* Content grid (included items) */
-    .ev-content-grid { grid-template-columns: 1fr 1fr; }
+    .ev-content-group__grid { grid-template-columns: 1fr 1fr; }
 
     /* Contact form */
     .ev-form-grid { grid-template-columns: 1fr; }

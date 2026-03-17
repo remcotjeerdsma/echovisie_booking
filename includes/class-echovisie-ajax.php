@@ -846,6 +846,10 @@ class EchoVisie_Ajax {
         if ( $e10 > 0 ) {
             $parts[] = "{$e10}x extra 10x15 afdruk";
         }
+        $confetti = intval( $addons['confetti_kanon'] ?? 0 );
+        if ( $confetti > 0 ) {
+            $parts[] = "{$confetti}x Gender Reveal confettikanon";
+        }
 
         return implode( ', ', $parts );
     }

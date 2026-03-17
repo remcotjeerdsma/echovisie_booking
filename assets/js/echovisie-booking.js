@@ -35,7 +35,8 @@
         photo:   '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>',
         usb:     '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M15 7v4h1v2h-3V5h2l-3-4-3 4h2v8H8v-2.07c.7-.37 1.2-1.08 1.2-1.93C9.2 7.75 8.45 7 7.5 7S5.8 7.75 5.8 8.93c0 .85.5 1.56 1.2 1.93V13c0 1.1.9 2 2 2h3v3.05c-.71.37-1.2 1.1-1.2 1.95 0 1.22.98 2.2 2.2 2.2s2.2-.98 2.2-2.2c0-.85-.49-1.58-1.2-1.95V15h3c1.1 0 2-.9 2-2v-2h1V7h-4z"/></svg>',
         mic:     '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>',
-        heart:   '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'
+        heart:   '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>',
+        confetti:'<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>'
     };
 
     /* ── State ─────────────────────────────────────────── */
@@ -474,7 +475,7 @@
             if (sug.discountPct > 0) {
                 var stampEl = document.createElement('div');
                 stampEl.className = 'ev-suggestion__stamp';
-                stampEl.innerHTML = Math.round(sug.discountPct * 100) + '%<span>korting</span>';
+                stampEl.innerHTML = '<span class="ev-suggestion__stamp__inner">' + Math.round(sug.discountPct * 100) + '%<span>korting</span></span>';
                 wrap.appendChild(stampEl);
             }
 
@@ -740,7 +741,7 @@
         slider.type = 'range';
         slider.className = 'ev-slider';
         slider.min = 10;
-        slider.max = 60;
+        slider.max = 50;
         slider.step = 10;
         slider.value = appt.duration;
 
@@ -784,37 +785,62 @@
         var rules = getContentRules(duration);
         container.innerHTML = '';
 
-        var items = [
-            { icon: IC.photo2d, label: rules.photos_2d + 'x 2D beelden',   included: rules.photos_2d > 0 },
-            { icon: IC.photo3d, label: rules.photos_3d > 0 ? rules.photos_3d + 'x 3D beelden' : '3D beelden', included: rules.photos_3d > 0 },
-            { icon: IC.video,   label: rules.videos_2d > 0 ? rules.videos_2d + 'x 2D video' : '2D video',    included: rules.videos_2d > 0 },
-            { icon: IC.film,    label: rules.videos_4d > 0 ? rules.videos_4d + 'x 4D video' : '4D video',    included: rules.videos_4d > 0 },
-            { icon: IC.print,   label: rules.prints_a4 > 0 ? rules.prints_a4 + 'x A4 afdruk' : 'A4 afdruk',  included: rules.prints_a4 > 0 },
-            { icon: IC.photo,   label: rules.prints_10x15 > 0 ? rules.prints_10x15 + 'x 10\u00d715 afdruk' : '10\u00d715 afdruk', included: rules.prints_10x15 > 0 },
-            { icon: IC.usb,     label: 'USB-stick',          included: rules.usb_free },
-            { icon: IC.mic,     label: 'Volledige opname',   included: rules.recording_free },
-            { icon: IC.heart,   label: 'Geslachtsbepaling',  included: true }
+        var groups = [
+            {
+                title: 'Digitale content',
+                items: [
+                    { icon: IC.photo2d, label: rules.photos_2d + 'x 2D beelden', included: rules.photos_2d > 0 },
+                    { icon: IC.photo3d, label: rules.photos_3d > 0 ? rules.photos_3d + 'x 3D beelden' : '3D beelden', included: rules.photos_3d > 0 },
+                    { icon: IC.video,   label: rules.videos_2d > 0 ? rules.videos_2d + 'x 2D video' : '2D video', included: rules.videos_2d > 0 },
+                    { icon: IC.film,    label: rules.videos_4d > 0 ? rules.videos_4d + 'x 4D video' : '4D video', included: rules.videos_4d > 0 },
+                    { icon: IC.mic,     label: 'Volledige opname', included: rules.recording_free }
+                ]
+            },
+            {
+                title: 'Fotoafdrukken',
+                items: [
+                    { icon: IC.print, label: rules.prints_a4 > 0 ? rules.prints_a4 + 'x A4 afdruk' : 'A4 afdruk', included: rules.prints_a4 > 0 },
+                    { icon: IC.photo, label: rules.prints_10x15 > 0 ? rules.prints_10x15 + 'x 10\u00d715 afdruk' : '10\u00d715 afdruk', included: rules.prints_10x15 > 0 }
+                ]
+            },
+            {
+                title: 'Producten',
+                items: [
+                    { icon: IC.usb,      label: 'USB-stick', included: rules.usb_free },
+                    { icon: IC.confetti, label: 'Gender Reveal confettikanon', included: false, orderable: true }
+                ]
+            }
         ];
 
-        items.forEach(function (item) {
-            var el = document.createElement('div');
-            el.className = 'ev-content-item ' + (item.included ? 'ev-content-item--included' : 'ev-content-item--not-included');
-            el.innerHTML = '<span class="ev-content-item__icon">' + item.icon + '</span>' +
-                '<span class="ev-content-item__label">' + item.label + '</span>';
-            container.appendChild(el);
+        groups.forEach(function (group) {
+            var groupEl = document.createElement('div');
+            groupEl.className = 'ev-content-group';
+
+            var titleEl = document.createElement('div');
+            titleEl.className = 'ev-content-group__title';
+            titleEl.textContent = group.title;
+            groupEl.appendChild(titleEl);
+
+            var gridEl = document.createElement('div');
+            gridEl.className = 'ev-content-group__grid';
+            group.items.forEach(function (item) {
+                var cls = item.included ? 'ev-content-item--included'
+                        : item.orderable ? 'ev-content-item--orderable'
+                        : 'ev-content-item--not-included';
+                var el = document.createElement('div');
+                el.className = 'ev-content-item ' + cls;
+                el.innerHTML = '<span class="ev-content-item__icon">' + item.icon + '</span>' +
+                    '<span class="ev-content-item__label">' + item.label + '</span>';
+                gridEl.appendChild(el);
+            });
+            groupEl.appendChild(gridEl);
+            container.appendChild(groupEl);
         });
     }
 
     function renderAddons(container, appt, idx) {
         container.innerHTML = '<div class="ev-addons__title">Extra opties</div>';
         var rules = getContentRules(appt.duration);
-
-        // 3D photos (only if not included)
-        if (rules.photos_3d === 0) {
-            container.appendChild(createAddonToggle(
-                'add_3d', '3D beelden toevoegen', PRICING.price3dExtra, appt, idx
-            ));
-        }
 
         // USB stick (only if not free)
         if (!rules.usb_free) {
@@ -843,6 +869,12 @@
             'extra_10x15', 'Extra 10\u00d715 afdrukken', PRICING.priceExtra10x15,
             rules.prints_10x15 > 0 ? rules.prints_10x15 + ' inbegrepen' : '',
             appt, idx
+        ));
+
+        // Gender Reveal confettikanon (always orderable, never included)
+        container.appendChild(createAddonQty(
+            'confetti_kanon', 'Gender Reveal confettikanon', PRICING.priceConfettiKanon || 0,
+            '', appt, idx
         ));
 
         // Gender (always shown – can opt out)
@@ -1834,11 +1866,13 @@
 
             var tags = [];
             if (rules.photos_2d > 0)                      tags.push(IC.photo2d + ' ' + rules.photos_2d + 'x&nbsp;2D');
-            if (rules.photos_3d > 0 || appt.addons.add_3d) tags.push(IC.photo3d + ' ' + (rules.photos_3d || '') + 'x&nbsp;3D');
+            if (rules.photos_3d > 0)                       tags.push(IC.photo3d + ' ' + rules.photos_3d + 'x&nbsp;3D');
             if (rules.videos_4d > 0)                       tags.push(IC.film    + ' ' + rules.videos_4d + 'x&nbsp;4D');
             if (!appt.genderOptOut)                        tags.push(IC.heart   + ' Geslacht');
             if (rules.usb_free || appt.addons.add_usb)    tags.push(IC.usb     + ' USB');
             if (rules.recording_free || appt.addons.add_recording) tags.push(IC.mic + ' Opname');
+            var confettiQty = parseInt(appt.addons.confetti_kanon || 0, 10);
+            if (confettiQty > 0) tags.push(IC.confetti + ' ' + confettiQty + 'x&nbsp;Confetti');
 
             var tagsHtml = tags.map(function (t) {
                 return '<span class="ev-sidebar__tag">' + t + '</span>';
@@ -1935,9 +1969,6 @@
         var rules = getContentRules(appt.duration);
         var total = 0;
 
-        if (appt.addons.add_3d && rules.photos_3d === 0) {
-            total += PRICING.price3dExtra || 0;
-        }
         if (appt.addons.add_usb && !rules.usb_free) {
             total += PRICING.priceUsb || 0;
         }
@@ -1948,6 +1979,8 @@
         if (extraA4 > 0) total += extraA4 * (PRICING.priceExtraA4 || 0);
         var extra10 = parseInt(appt.addons.extra_10x15 || 0, 10);
         if (extra10 > 0) total += extra10 * (PRICING.priceExtra10x15 || 0);
+        var confetti = parseInt(appt.addons.confetti_kanon || 0, 10);
+        if (confetti > 0) total += confetti * (PRICING.priceConfettiKanon || 0);
 
         return Math.round(total * 100) / 100;
     }
