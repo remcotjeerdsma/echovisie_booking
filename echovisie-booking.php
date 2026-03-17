@@ -2,7 +2,7 @@
 /**
  * Plugin Name: EchoVisie Booking
  * Description: Visueel boekingsformulier voor pretecho-afspraken, geïntegreerd met Bookly Pro.
- * Version: 3.1.0
+ * Version: 3.2.0
  * Author: EchoVisie
  * Text Domain: echovisie-booking
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'ECHOVISIE_VERSION', '3.1.0' );
+define( 'ECHOVISIE_VERSION', '3.2.0' );
 define( 'ECHOVISIE_PATH', plugin_dir_path( __FILE__ ) );
 define( 'ECHOVISIE_URL', plugin_dir_url( __FILE__ ) );
 
