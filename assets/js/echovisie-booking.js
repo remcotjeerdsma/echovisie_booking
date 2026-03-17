@@ -140,6 +140,14 @@
                 btn.classList.add('ev-month-btn--selected');
                 state.pregMonth = String(idx + 1);
                 onDateChange();
+
+                // Nudge user to fill in the day if they haven't yet
+                var di = document.getElementById('ev-day-input');
+                if (di && !di.value) {
+                    di.focus();
+                    di.classList.add('ev-input--highlight');
+                    setTimeout(function () { di.classList.remove('ev-input--highlight'); }, 1800);
+                }
             });
             grid.appendChild(btn);
         });
@@ -208,16 +216,19 @@
         // Day number input — plain <input type="number">, never replaced by theme libraries
         var dayInput = document.getElementById('ev-day-input');
         if (dayInput) {
-            dayInput.addEventListener('input', function () {
+            function clampDayInput() {
+                var v = parseInt(this.value, 10);
+                if (this.value !== '' && !isNaN(v)) {
+                    if (v < 1)  { this.value = 1;  v = 1; }
+                    if (v > 31) { this.value = 31; v = 31; }
+                }
                 state.pregDay = this.value;
                 updateMonthButtonStates();
                 onDateChange();
-            });
-            dayInput.addEventListener('change', function () {
-                state.pregDay = this.value;
-                updateMonthButtonStates();
-                onDateChange();
-            });
+            }
+            dayInput.addEventListener('input',  clampDayInput);
+            dayInput.addEventListener('change', clampDayInput);
+            dayInput.addEventListener('blur',   clampDayInput);
         }
 
         // Timeline bar drag — replaces the detached range slider

@@ -1124,6 +1124,13 @@
     width: 100%;
 }
 .ev-input:focus { outline: none; border-color: var(--ev-primary); background: var(--ev-white); box-shadow: 0 0 0 3px rgba(226,130,37,.14); }
+.ev-input--highlight { animation: ev-input-nudge 1.8s ease forwards; }
+@keyframes ev-input-nudge {
+    0%   { border-color: var(--ev-border); box-shadow: none; }
+    15%  { border-color: var(--ev-primary); box-shadow: 0 0 0 4px rgba(226,130,37,.25); }
+    70%  { border-color: var(--ev-primary); box-shadow: 0 0 0 4px rgba(226,130,37,.18); }
+    100% { border-color: var(--ev-border); box-shadow: none; }
+}
 .ev-textarea { resize: vertical; min-height: 75px; }
 
 /* ── Voucher ───────────────────────────────────────────── */
