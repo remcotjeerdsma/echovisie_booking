@@ -1056,7 +1056,10 @@
 
     function renderCalendar(container, appt, apptIdx) {
         var now = new Date();
-        var viewDate = appt.calendarMonth || (appt.milestone ? getIdealDate(appt.milestone) : new Date(now.getFullYear(), now.getMonth(), 1));
+        var todayMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        var viewDate = appt.calendarMonth || (appt.milestone ? getIdealDate(appt.milestone) : todayMonth);
+        // Never open on a month in the past
+        if (viewDate < todayMonth) viewDate = todayMonth;
         appt.calendarMonth = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
 
         var year = viewDate.getFullYear();
