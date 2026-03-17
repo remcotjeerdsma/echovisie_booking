@@ -343,9 +343,9 @@
         var info = document.getElementById('ev-preg-info');
         if (!info) return;
 
-        // Static badge visible only when no week selected yet
+        // Badge hidden when no week selected; floating label handles the active state
         var badge = info.querySelector('.ev-preg-badge');
-        if (badge) badge.style.display = state.pregnancyWeek !== null ? 'none' : '';
+        if (badge) badge.style.display = 'none';
 
         if (state.pregnancyWeek !== null) {
             var pct = Math.min(100, (state.pregnancyWeek / 42) * 100);
