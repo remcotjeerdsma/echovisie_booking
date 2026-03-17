@@ -1269,6 +1269,9 @@
         // Kick off month availability fetch if not yet cached
         if (!avail && !state.monthAvailLoading[monthKey]) {
             loadMonthAvailability(apptIdx, year, month, container);
+        } else if (!avail && state.monthAvailLoading[monthKey]) {
+            // Fetch already in-flight (e.g. user navigated back) — show skeleton immediately
+            grid.classList.add('ev-calendar__grid--loading');
         }
     }
 
@@ -1363,6 +1366,10 @@
         var monthKey = apptIdx + ':' + year + '-' + (month + 1);
         state.monthAvailLoading[monthKey] = true;
 
+        // Show skeleton on the grid while loading
+        var grid = calendarContainer.querySelector('.ev-calendar__grid');
+        if (grid) grid.classList.add('ev-calendar__grid--loading');
+
         var fd = new FormData();
         fd.append('action', 'echovisie_get_month_availability');
         fd.append('nonce', CFG.nonce);
@@ -1375,6 +1382,7 @@
             .then(function (r) { return r.json(); })
             .then(function (resp) {
                 state.monthAvailLoading[monthKey] = false;
+                if (grid) grid.classList.remove('ev-calendar__grid--loading');
                 if (!resp.success) return;
 
                 var days = resp.data.days || {};
@@ -1389,6 +1397,7 @@
             })
             .catch(function () {
                 state.monthAvailLoading[monthKey] = false;
+                if (grid) grid.classList.remove('ev-calendar__grid--loading');
             });
     }
 

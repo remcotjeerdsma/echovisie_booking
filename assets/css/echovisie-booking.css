@@ -1022,6 +1022,23 @@
 .ev-calendar__day--disabled { opacity: .2; cursor: not-allowed; pointer-events: none; }
 .ev-calendar__day--empty { visibility: hidden; }
 
+/* Skeleton loading state while availability is being fetched */
+@keyframes ev-cal-skeleton {
+    0%, 100% { opacity: .55; }
+    50%       { opacity: .25; }
+}
+.ev-calendar__grid--loading .ev-calendar__day:not(.ev-calendar__day--disabled):not(.ev-calendar__day--empty) {
+    background: var(--ev-border) !important;
+    color: transparent !important;
+    border-color: transparent !important;
+    pointer-events: none;
+    animation: ev-cal-skeleton 1.3s ease-in-out infinite;
+}
+/* Stagger animation so cells shimmer in a wave */
+.ev-calendar__grid--loading .ev-calendar__day:nth-child(3n+1):not(.ev-calendar__day--disabled):not(.ev-calendar__day--empty) { animation-delay: 0s; }
+.ev-calendar__grid--loading .ev-calendar__day:nth-child(3n+2):not(.ev-calendar__day--disabled):not(.ev-calendar__day--empty) { animation-delay: .15s; }
+.ev-calendar__grid--loading .ev-calendar__day:nth-child(3n):not(.ev-calendar__day--disabled):not(.ev-calendar__day--empty)   { animation-delay: .3s; }
+
 /* Availability colour coding (matches timeslot colours) */
 .ev-calendar__day--unavailable {
     background: #f0f0f0;
