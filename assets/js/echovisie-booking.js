@@ -20,9 +20,15 @@
     var DURATIONS = [10, 20, 30, 40, 50];
 
     var MILESTONES = [
-        { id: 'gender', name: 'Geslachtsbepaling', weekStart: 15, weekEnd: 20, weekIdeal: 16, duration: 20, desc: 'Ideaal voor geslachtsbepaling' },
-        { id: 'pretecho', name: 'Pretecho (3D/4D)', weekStart: 22, weekEnd: 29, weekIdeal: 28, duration: 40, desc: 'Optimaal voor 3D/4D-beelden' },
-        { id: 'portrait', name: 'Portretecho', weekStart: 32, weekEnd: 36, weekIdeal: 34, duration: 30, desc: 'Gedetailleerde portretbeelden' }
+        { id: 'gender',   name: 'Geslachtsbepaling', weekStart: 15, weekEnd: 20, weekIdeal: 16, duration: 20,
+          desc: 'Een echo die doorgaans bij 15\u201316 weken zwangerschap plaatsvindt, waarbij we samen het geslacht van de kleine ontdekken! Gegarandeerd\u2009\u2013\u2009als het niet lukt, mag je gratis nog een keer terugkomen voor een tweede kans.',
+          altDuration: 10,
+          altName: 'Geslachtsbepaling \u2013 snel kijken',
+          altDesc: 'Even snel een kijkje nemen of het een jongetje of meisje is, zonder extra beelden of uitgebreide sessie. Perfect voor wie het antwoord gewoon wil weten!' },
+        { id: 'pretecho', name: 'Pretecho (3D/4D)',  weekStart: 22, weekEnd: 29, weekIdeal: 28, duration: 40,
+          desc: 'Deze echo maak je het beste rond de 26\u201328e week van de zwangerschap. We kunnen dan vaak mooie 3D beelden van de baby in de buik maken.' },
+        { id: 'portrait', name: 'Portretecho',       weekStart: 32, weekEnd: 36, weekIdeal: 34, duration: 30,
+          desc: 'Deze echo wordt laat in de zwangerschap gemaakt. Je ziet erg veel detail in het gezicht van de baby, maar omdat de baby al groter is en wat dieper ligt, bestaat de kans dat het niet lukt om het gezicht goed in beeld te brengen. Helaas kunnen we voor de portretecho geen garantie op succes geven.' }
     ];
 
     /* ── Icons (SVG strings reused in content grid and sidebar) ── */
@@ -50,6 +56,7 @@
         dueDate: null,          // Date object
 
         selectedSuggestion: null,   // index or 'custom'
+        suggestionVariants: {},     // idx → override duration for alt-duration suggestions
         packageQty: 1,
 
         appointments: [createEmptyAppt()],
@@ -479,18 +486,26 @@
                 wrap.appendChild(stampEl);
             }
 
+            // For single-echo suggestions with an alt-duration variant, resolve effective values
+            var isAltActive = sug.altDuration != null && state.suggestionVariants[idx] === sug.altDuration;
+            var effectiveTitle = isAltActive ? (sug.altName || sug.title) : sug.title;
+            var effectivePrice = isAltActive ? calcBasePrice(sug.altDuration) : sug.price;
+            var effectiveDesc  = isAltActive
+                ? (sug.altDesc || '') + ' \u2022 ' + sug.altDuration + ' minuten \u2022 week ' + sug.milestones[0].weekStart + '-' + sug.milestones[0].weekEnd
+                : sug.desc;
+
             var header = '<div class="ev-suggestion__header">';
-            header += '<span class="ev-suggestion__title">' + sug.title + '</span>';
+            header += '<span class="ev-suggestion__title">' + effectiveTitle + '</span>';
             header += '<span>';
             if (sug.discountPct > 0) {
                 header += '<span class="ev-suggestion__price--old">' + euro(sug.originalPrice) + '</span>';
             }
-            header += '<span class="ev-suggestion__price">' + euro(sug.price) + '</span>';
+            header += '<span class="ev-suggestion__price">' + euro(effectivePrice) + '</span>';
             header += '</span></div>';
 
             // For packages the sub-cards already show all info; desc would be duplicate
             var desc = sug.milestones.length === 1
-                ? '<div class="ev-suggestion__desc">' + sug.desc + '</div>'
+                ? '<div class="ev-suggestion__desc">' + effectiveDesc + '</div>'
                 : '';
 
             // For single echo: show content tags; for packages: no duplicate tag strip
@@ -518,7 +533,7 @@
 
                     var nameEl = document.createElement('div');
                     nameEl.className = 'ev-suggestion__appt-card__name';
-                    nameEl.innerHTML = m.name + ' <span class="ev-suggestion__appt-card__week">week\u00a0' + m.weekStart + '\u2013' + m.weekEnd + '</span>';
+                    nameEl.innerHTML = m.name + (m.desc ? infoTip(m.desc) : '') + ' <span class="ev-suggestion__appt-card__week">week\u00a0' + m.weekStart + '\u2013' + m.weekEnd + '</span>';
 
                     // Duration pill
                     var durEl = document.createElement('span');
@@ -554,6 +569,64 @@
                     apptsDiv.appendChild(apptCard);
                 });
                 card.appendChild(apptsDiv);
+            }
+
+            // Alt-duration toggle button (e.g. "snel kijken" variant for Geslachtsbepaling)
+            if (sug.altDuration != null) {
+                (function (sugIdx, sugRef) {
+                    var altEl = document.createElement('div');
+                    altEl.className = 'ev-suggestion__alt';
+
+                    var altBtn = document.createElement('button');
+                    altBtn.type = 'button';
+                    altBtn.className = 'ev-suggestion__alt-btn';
+
+                    function refreshAltBtn(altIsActive) {
+                        if (altIsActive) {
+                            altBtn.innerHTML = '\u2190 Terug naar de uitgebreide versie \u2022 ' + euro(calcBasePrice(sugRef.durations[0]));
+                            altBtn.classList.add('ev-suggestion__alt-btn--back');
+                        } else {
+                            altBtn.innerHTML = 'Of alleen even snel kijken? \u2022 ' + euro(calcBasePrice(sugRef.altDuration));
+                            altBtn.classList.remove('ev-suggestion__alt-btn--back');
+                        }
+                    }
+                    refreshAltBtn(isAltActive);
+
+                    altBtn.addEventListener('click', function (e) {
+                        e.stopPropagation(); // don't trigger card select
+                        var nowAlt = state.suggestionVariants[sugIdx] === sugRef.altDuration;
+                        var newDur = nowAlt ? sugRef.durations[0] : sugRef.altDuration;
+                        state.suggestionVariants[sugIdx] = newDur;
+                        var switchingToAlt = !nowAlt;
+
+                        // Update title
+                        var titleEl = card.querySelector('.ev-suggestion__title');
+                        if (titleEl) titleEl.textContent = switchingToAlt ? (sugRef.altName || sugRef.title) : sugRef.title;
+
+                        // Update price
+                        var priceEl = card.querySelector('.ev-suggestion__price');
+                        if (priceEl) priceEl.textContent = euro(switchingToAlt ? calcBasePrice(sugRef.altDuration) : sugRef.price);
+
+                        // Update desc
+                        var descEl = card.querySelector('.ev-suggestion__desc');
+                        if (descEl) {
+                            descEl.textContent = switchingToAlt
+                                ? (sugRef.altDesc || '') + ' \u2022 ' + sugRef.altDuration + ' minuten \u2022 week ' + sugRef.milestones[0].weekStart + '-' + sugRef.milestones[0].weekEnd
+                                : sugRef.desc;
+                        }
+
+                        refreshAltBtn(switchingToAlt);
+
+                        // If this suggestion is already selected, update the appointment duration
+                        if (state.selectedSuggestion === sugIdx && state.appointments.length > 0) {
+                            state.appointments[0].duration = newDur;
+                            updateSidebar();
+                        }
+                    });
+
+                    altEl.appendChild(altBtn);
+                    card.appendChild(altEl);
+                }(idx, sug));
             }
 
             card.addEventListener('click', function () {
@@ -620,7 +693,10 @@
             qty: 1,
             milestones: [milestone],
             durations: [dur],
-            tags: tags
+            tags: tags,
+            altDuration:  milestone.altDuration  || null,
+            altName:      milestone.altName      || null,
+            altDesc:      milestone.altDesc      || null
         };
     }
 
@@ -663,12 +739,15 @@
         cards.forEach(function (c) { c.classList.remove('ev-suggestion--selected'); });
         cards[idx].classList.add('ev-suggestion--selected');
 
-        // Set appointments
+        // Set appointments (respect alt-duration variant for single-milestone suggestions)
         state.packageQty = sug.qty;
         state.appointments = [];
         for (var i = 0; i < sug.qty; i++) {
             var appt = createEmptyAppt();
-            appt.duration = sug.durations[i] || sug.durations[0];
+            var defaultDur = sug.durations[i] || sug.durations[0];
+            appt.duration = (i === 0 && sug.qty === 1 && state.suggestionVariants[idx] != null)
+                ? state.suggestionVariants[idx]
+                : defaultDur;
             appt.milestone = sug.milestones[i] || null;
             state.appointments.push(appt);
         }
@@ -797,7 +876,7 @@
                     { icon: IC.photo3d, label: rules.photos_3d > 0 ? rules.photos_3d + 'x 3D beelden' : '3D beelden', included: rules.photos_3d > 0 },
                     { icon: IC.video,   label: rules.videos_2d > 0 ? rules.videos_2d + 'x 2D video' : '2D video', included: rules.videos_2d > 0 },
                     { icon: IC.film,    label: rules.videos_4d > 0 ? rules.videos_4d + 'x 4D video' : '4D video', included: rules.videos_4d > 0 },
-                    { icon: IC.mic,     label: 'Volledige opname', included: rules.recording_free }
+                    { icon: IC.mic,     label: 'Volledige opname', included: rules.recording_free, hint: 'Als dit onderdeel is van je echo, wordt de gehele echo opgenomen en bewaard op USB-stick. Zo kun je de echo altijd van begin tot eind terugkijken; nu \u00e9n later.' }
                 ]
             },
             {
@@ -834,7 +913,7 @@
                 var el = document.createElement('div');
                 el.className = 'ev-content-item ' + cls;
                 el.innerHTML = '<span class="ev-content-item__icon">' + item.icon + '</span>' +
-                    '<span class="ev-content-item__label">' + item.label + '</span>';
+                    '<span class="ev-content-item__label">' + item.label + (item.hint ? infoTip(item.hint) : '') + '</span>';
                 gridEl.appendChild(el);
             });
             groupEl.appendChild(gridEl);
@@ -916,6 +995,13 @@
         labelEl.className = 'ev-addon-item__label';
         labelEl.textContent = label;
         infoDiv.appendChild(labelEl);
+
+        if (key === '_gender_include') {
+            var hintEl = document.createElement('span');
+            hintEl.className = 'ev-addon-item__hint';
+            hintEl.textContent = 'Een geslachtsbepaling kunnen we bij elke echo doen en is altijd inbegrepen, maar als je niet wil dat we het geslacht bepalen, laat het ons dan hier weten!';
+            infoDiv.appendChild(hintEl);
+        }
 
         // Price
         var priceEl = document.createElement('span');
@@ -1250,7 +1336,7 @@
         calLegend.className = 'ev-calendar__day-legend';
         calLegend.innerHTML =
             '<span><span class="ev-cdl-dot ev-cdl-dot--cheap"></span>Dagtarief</span>' +
-            '<span><span class="ev-cdl-dot ev-cdl-dot--adjacent"></span>Aansluitkorting</span>' +
+            '<span><span class="ev-cdl-dot ev-cdl-dot--adjacent"></span>Aansluitkorting' + infoTip('Extra korting die je krijgt als je een echo boekt die aansluit op een andere afspraak.') + '</span>' +
             '<span><span class="ev-cdl-dot ev-cdl-dot--peak"></span>Avond/weekend</span>' +
             '<span><span class="ev-cdl-dot ev-cdl-dot--unavailable"></span>Niet beschikbaar</span>';
         container.appendChild(calLegend);
@@ -1500,7 +1586,7 @@
         legend.className = 'ev-timeslot-legend';
         var legendHtml = '<span><span class="ev-timeslot-legend__dot ev-timeslot-legend__dot--cheap"></span>Voordelig (dagtarief)</span>';
         if (hasAdjacent) {
-            legendHtml += '<span><span class="ev-timeslot-legend__dot ev-timeslot-legend__dot--adjacent"></span>Aansluitkorting (5%)</span>';
+            legendHtml += '<span><span class="ev-timeslot-legend__dot ev-timeslot-legend__dot--adjacent"></span>Aansluitkorting (5%)' + infoTip('Extra korting die je krijgt als je een echo boekt die aansluit op een andere afspraak.') + '</span>';
         }
         legend.innerHTML = legendHtml +
             '<span><span class="ev-timeslot-legend__dot ev-timeslot-legend__dot--peak"></span>Avond/weekend (+ ' + euro(PRICING.surchargeAmount) + ')</span>';
@@ -2018,6 +2104,14 @@
         if (!d) return '';
         if (typeof d === 'string') d = new Date(d);
         return d.getDate() + ' ' + MONTHS_NL[d.getMonth()] + ' ' + d.getFullYear();
+    }
+
+    function infoTip(text) {
+        var safe = (text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        return '<span class="ev-hint-wrap">' +
+            '<span class="ev-hint__icon" tabindex="0" aria-label="Meer informatie">i</span>' +
+            '<span class="ev-hint-tip">' + safe + '</span>' +
+            '</span>';
     }
 
     function buildContentTags(rules) {
